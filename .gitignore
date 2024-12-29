@@ -1,0 +1,14 @@
+structure.txt
+instructionsForAI.md
+SchematixFirst
+
+## ENV Files && go.sum's
+.env
+/**/*/.env
+/**/*/go.sum
+/**/*/tmp
+/**/*/.air.toml
+/**/*/build/*
+
+go.work.sum
+global.hcl
