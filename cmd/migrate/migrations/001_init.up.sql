@@ -2,6 +2,7 @@
 
 CREATE TYPE role AS ENUM (
   'access_role_unspecified',
+  'access_role_entity',
   'access_role_admin',
   'access_role_account',
   'access_role_read_only'

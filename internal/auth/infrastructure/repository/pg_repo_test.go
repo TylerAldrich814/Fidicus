@@ -2,19 +2,28 @@ package repository
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"testing"
+
+	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
 	"github.com/TylerAldrich814/Schematix/internal/shared/config"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
-func setupTestDB(ctx context.Context) *PGRepo {
+
+func setupTestDB(ctx context.Context) domain.AuthRepository {
+  // ->> App Config
+  config.LoadEnv()
   config.InitLogger()
 
-  db, err := New(ctx)
+  // ->> Auth Repository Initialization:
+  log.Warn()
+  dbConfig := config.GetDBConfig()
+  dsn := dbConfig.GetPostgresURI()
+
+  db, err := NewAuthRepo(ctx, dsn)
   if err != nil {
     panic(err)
   }
@@ -22,80 +31,88 @@ func setupTestDB(ctx context.Context) *PGRepo {
   return db
 }
 
-func TestEntitySignup(t *testing.T) {
+func TestEntitySignupAndRemoval(t *testing.T) {
   ctx := context.Background()
   db := setupTestDB(ctx)
 
   tests := []struct{
-    name      string
-    newAccount   domain.Account
-    newEntity domain.Entity
-    wantErr   error
+    name       string
+    newAccount domain.AccountSignupReq
+    newEntity  domain.EntitySignupReq
+    wantErr    error
   }{
     {
-      name      : "Creates new entity and new user",
-      newAccount   : domain.Account{
+      name       : "Creates new entity and new user",
+      newAccount : domain.AccountSignupReq{
         Email           : "some_user@gmail.com",
-        PasswHash       : "some_password",
+        Passw           : "some_password",
         Role            : domain.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
         CellphoneNumber : "814-555-0666",
       },
-      newEntity : domain.Entity{
-        Name            : "SomeEntity Inc",
-        Description     : "Some Software Company",
-        AccountIDs         : []uuid.UUID{},
+      newEntity : domain.EntitySignupReq{
+        Name        : "SomeEntity Inc",
+        Description : "Some Software Company",
       },
       wantErr   : nil,
     },
     {
       name      : "entity should already exist",
-      newAccount   : domain.Account{
+      newAccount   : domain.AccountSignupReq{
         Email           : "some_user@gmail.com",
-        PasswHash       : "some_password",
+        Passw           : "some_other_password",
         Role            : domain.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
         CellphoneNumber : "814-555-0666",
       },
-      newEntity : domain.Entity{
+      newEntity : domain.EntitySignupReq{
         Name            : "SomeEntity Inc",
         Description     : "Some Software Company",
-        AccountIDs         : []uuid.UUID{},
       },
       wantErr   : ErrDBEntityAlreadyExists,
     },
   }
 
+  // Tests for Creating an Entity and recreating the same entity, which shouold fail.
   for _, tt := range tests {
     t.Run(tt.name, func(t *testing.T){
-      eid, uid, err := db.CreateEntity(
+      eid, _, err := db.CreateEntity(
         ctx,
         tt.newEntity,
         tt.newAccount,
       )
-      if eid != "" && uid != "" {
-        log.Info("EID: " + eid)
-        log.Info("UID: " + eid)
+      if eid != domain.EntityID(uuid.Nil) {
       }
       assert.Equal(t, tt.wantErr, err, tt.name)
     })
   }
+
+  id, err := db.GetEntityIDByName(ctx, tests[0].newEntity.Name)
+  if err != nil {
+    panic(err)
+  }
+  
+  // Delete test Entity
+  if err := db.RemoveEntityByID(ctx, id); err != nil {
+    panic(err)
+  }
 }
 
-
-func TestCreateAccount(t *testing.T) {
+func TestCreateAccountAndRemoval(t *testing.T) {
   ctx := context.Background()
   db := setupTestDB(ctx)
 
   testEID, _, err := db.CreateEntity(
     ctx,
-    domain.Entity{
-      Name: "SomeEntity",
+    domain.EntitySignupReq{
+      Name        : "SomeEntity",
+      Description : "Some Software Company",
     },
-    domain.Account {
+    domain.AccountSignupReq {
       Email     : "someAdminEmail@entity.com",
+      Passw     : "some_super_secure_password",
       FirstName : "Admin",
       LastName  : "Admin",
     },
@@ -103,17 +120,19 @@ func TestCreateAccount(t *testing.T) {
   if err != nil {
     panic(err)
   }
+  eid := uuid.UUID(testEID)
 
   tests := []struct{
-    name      string
-    newAccount   domain.Account
-    wantErr   error
+    name       string
+    newAccount domain.AccountSignupReq
+    wantErr    error
   }{
     {
-      name      : "Creates new entity and new user",
-      newAccount   : domain.Account{
+      name       : "Creates new entity and new user",
+      newAccount : domain.AccountSignupReq{
+        EntityID        : eid,
         Email           : "some_user@gmail.com",
-        PasswHash       : "some_password",
+        Passw           : "some_password",
         Role            : domain.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
@@ -122,10 +141,11 @@ func TestCreateAccount(t *testing.T) {
       wantErr   : nil,
     },
     {
-      name      : "entity should already exist",
-      newAccount   : domain.Account{
+      name       : "entity should already exist",
+      newAccount : domain.AccountSignupReq{
+        EntityID        : eid,
         Email           : "some_user@gmail.com",
-        PasswHash       : "some_other_password",
+        Passw           : "some_other_password",
         Role            : domain.AccessRoleAdmin,
         FirstName       : "T.",
         LastName        : "D.",
@@ -137,12 +157,22 @@ func TestCreateAccount(t *testing.T) {
 
   for _, tt := range tests {
     t.Run(tt.name, func(t *testing.T) {
-      uid, err := db.CreateAccount(ctx, testEID, tt.newAccount)
-      if uid != "" {
-        log.Info("UID: " + uid)
-      }
+      _, err := db.CreateAccount(ctx, tt.newAccount)
 
       assert.Equal(t, tt.wantErr, err, tt.name)
     })
+  }
+   id, err := db.GetAccountIDByEmail(ctx, tests[0].newAccount.Email)
+   if err != nil {
+     panic(err)
+   }
+
+  // Remove Test User
+  if err := db.RemoveAccountByID(ctx, id); err != nil {
+    panic(err)
+  }
+
+  if err := db.RemoveEntityByID(ctx, testEID); err != nil {
+    panic(err)
   }
 }

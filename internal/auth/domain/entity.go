@@ -5,6 +5,12 @@ import (
   "github.com/google/uuid"
 )
 
+type EntityID  uuid.UUID
+
+func NilEntity() EntityID{
+  return EntityID(uuid.Nil)
+}
+
 // Entity defines an Entity. An object that connects a plethora of SubAccounts with metadata associated 
 // with 
 type Entity struct {
@@ -16,10 +22,9 @@ type Entity struct {
   UpdatedAt   time.Time   `json:"updated_at"`
 }
 
-func NewEntity(
-  name string,
-  description string,
-)( *Entity, error ){
 
-  return nil, nil
+// EntitySignupReq defines the required data needed during an Entity Creation Event.
+type EntitySignupReq struct {
+  Name        string `json:"name"`
+  Description string `json:"description"`
 }

@@ -2,7 +2,9 @@ package repository
 
 import "errors"
 
+// Repository Errors: Errors that may occur during Database actions & requests.
 var (
+  ErrDBInternalFailure       = errors.New("an internal error occurred.")
   ErrDBConfigParse           = errors.New("failed to parse database config")
   ErrDBFailedCreation        = errors.New("failed to create postgres database")
   ErrDBFailedPing            = errors.New("failed to ping postgres database")
@@ -17,7 +19,7 @@ var (
   ErrDBAccountNotFound       = errors.New("queried account doesn't exists")
 
   ErrDBFailedToInsert        = errors.New("failed to insert into DB table")
-  ErrDBFailedToQuery         = errors.New("failed to query for an account")
+  ErrDBFailedToQuery         = errors.New("failed to query for database")
   ErrDBInvalidPassword       = errors.New("invalid password")
 
   ErrDBFailedToDeleteEntity  = errors.New("failed to delete entity")

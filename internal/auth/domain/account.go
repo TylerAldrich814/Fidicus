@@ -7,10 +7,13 @@ import (
   "github.com/google/uuid"
 )
 
-type EntityID string
-type AccountID string
+type AccountID uuid.UUID
 
-// Account defines an Entity SubAccount
+func NilAccount() AccountID{
+  return AccountID(uuid.Nil)
+}
+
+// Account defines the default Entity SubAccount with all of it's paramters.
 type Account struct {
   ID              uuid.UUID `json:"id"`
   EntityID        uuid.UUID `json:"entity_id"`
@@ -19,9 +22,28 @@ type Account struct {
   Role            Role      `json:"role"`
   FirstName       string    `json:"first_name"`
   LastName        string    `json:"last_name"`
-  CellphoneNumber string    `json:"cellphone_number"`
+  CellphoneNumber string    `json:"cellphone_number,omitempty"`
   CreatesAt       time.Time `json:"created_at"`
   UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// AccountSignupReq - Defines the expected data structure for when new requesting Account owner makes a Signup Request.
+type AccountSignupReq struct {
+  EntityID  uuid.UUID    `json:"entity_id"`
+  Email     string       `json:"email"`
+  Passw     string       `json:"password"`
+  Role      Role         `json:"role"`
+  FirstName string       `json:"first_name"`
+  LastName  string       `json:"last_name"`
+  CellphoneNumber string `json:"cellphone_number,omitempty"`
+}
+
+// AccountSigninReq - Defines the expected data structure for when an Account Owner makes a Signin Request. 
+type AccountSigninReq struct {
+  EntityName string `json:"entity_name"`
+  Email      string `json:"email"`
+  Passw      string `json:"password"`
+  Role       Role   `json:"role"`
 }
 
 func NewAccount(
