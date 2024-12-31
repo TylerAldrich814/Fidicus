@@ -2,9 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
@@ -60,8 +60,8 @@ func TestEntitySignupAndRemoval(t *testing.T) {
     {
       name      : "entity should already exist",
       newAccount   : domain.AccountSignupReq{
-        Email           : "some_user@gmail.com",
-        Passw           : "some_other_password",
+        Email           : "some_other_user@gmail.com",
+        Passw           : "some_other_other_password",
         Role            : domain.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
@@ -74,29 +74,38 @@ func TestEntitySignupAndRemoval(t *testing.T) {
       wantErr   : ErrDBEntityAlreadyExists,
     },
   }
+  // Cleanup:
+  cleanup := func(){
+    id, err := db.GetEntityIDByName(ctx, tests[0].newEntity.Name)
+    if err != nil {
+      if !errors.Is(err, ErrDBEntityNotFound){
+        panic(err)
+      }
+      return
+    }
+    if err := db.RemoveEntityByID(ctx, id); err != nil {
+      panic(err)
+    }
+  }
+  defer func(){
+    if r := recover(); r != nil {
+      cleanup()
+      t.Fail()
+    } else {
+      cleanup()
+    }
+  }()
 
   // Tests for Creating an Entity and recreating the same entity, which shouold fail.
   for _, tt := range tests {
     t.Run(tt.name, func(t *testing.T){
-      eid, _, err := db.CreateEntity(
+      _, _, err := db.CreateEntity(
         ctx,
         tt.newEntity,
         tt.newAccount,
       )
-      if eid != domain.EntityID(uuid.Nil) {
-      }
       assert.Equal(t, tt.wantErr, err, tt.name)
     })
-  }
-
-  id, err := db.GetEntityIDByName(ctx, tests[0].newEntity.Name)
-  if err != nil {
-    panic(err)
-  }
-  
-  // Delete test Entity
-  if err := db.RemoveEntityByID(ctx, id); err != nil {
-    panic(err)
   }
 }
 
@@ -120,7 +129,7 @@ func TestCreateAccountAndRemoval(t *testing.T) {
   if err != nil {
     panic(err)
   }
-  eid := uuid.UUID(testEID)
+  eid := testEID
 
   tests := []struct{
     name       string
@@ -174,5 +183,88 @@ func TestCreateAccountAndRemoval(t *testing.T) {
 
   if err := db.RemoveEntityByID(ctx, testEID); err != nil {
     panic(err)
+  }
+}
+
+// TestAccessTokenValidation - Tests the following 
+// 
+//  - Account Signup
+//  - Account Signin -- Retreive JWT Token
+//  - Validate Refresh Token
+func TestAccessTokenValidation(t *testing.T){
+  ctx := context.Background()
+  db  := setupTestDB(ctx)
+
+  test := struct{
+    name       string
+    newAccount domain.AccountSignupReq
+    newEntity  domain.EntitySignupReq
+    wantErr    error
+  }{
+    name       : "Creates new entity and new user",
+    newAccount : domain.AccountSignupReq{
+      Email           : "testing_jwt@gmail.com",
+      Passw           : "some_password",
+      Role            : domain.AccessRoleAdmin,
+      FirstName       : "Timmy",
+      LastName        : "D.",
+      CellphoneNumber : "814-555-0666",
+    },
+    newEntity : domain.EntitySignupReq{
+      Name        : "JWT Token Inc",
+      Description : "Some Software Company",
+    },
+    wantErr   : nil,
+  }
+
+  log.Print(" -->> CREATED ENTITY && ACCOUNT")
+  eid, aid, err := db.CreateEntity(ctx, test.newEntity, test.newAccount)
+  if err != nil {
+    log.WithFields(log.Fields{
+      "error": err.Error(),
+    }).Error("Failed to create entity")
+    t.Fail()
+  }
+
+  log.Print(" -->> ACCOUNT SIGN IN")
+  access, refresh, err := db.AccountSignin(ctx, domain.AccountSigninReq{
+    EntityName : test.newEntity.Name,
+    Email      : test.newAccount.Email,
+    Passw      : test.newAccount.Passw,
+  })
+  if err != nil {
+    log.WithFields(log.Fields{
+      "error": err.Error(),
+    }).Error("Failed to sign account in")
+    t.Fail()
+  }
+  if access.SignedToken == "" || refresh.SignedToken == "" {
+    log.Error("Failed to create signed tokens")
+    t.Fail()
+  }
+
+  log.Print(" -->> ACCOUNT SIGNED IN")
+
+  if err := db.ValidateRefreshToken(
+    ctx,
+    aid,
+    refresh.SignedToken,
+  ); err != nil {
+    log.Error("Failed to validate refresh token")
+    t.Fail()
+  }
+
+  if err := db.RemoveEntityByID(ctx, eid); err != nil {
+    log.WithFields(log.Fields{
+      "error": err.Error(),
+    }).Error("Failed to remove Entity")
+    t.Fail()
+  }
+  if err := db.RemoveAccountByID(ctx, aid); err != nil {
+    log.WithFields(log.Fields{
+      "error": err.Error(),
+    }).Error("Failed to remove Account")
+
+    t.Fail()
   }
 }

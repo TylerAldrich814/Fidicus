@@ -33,13 +33,12 @@ CREATE TABLE accounts (
 
 CREATE TABLE tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  acc_id UUID NOT NULL,
-  refresh_token TEXT NOT NULL,
+  account_id UUID NOT NULL,
+  refresh_token TEXT UNIQUE NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(acc_id, refresh_token),
-  FOREIGN KEY (acc_id) REFERENCES accounts(id) ON DELETE CASCADE
+  FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
 
 CREATE TABLE schemas (

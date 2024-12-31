@@ -4,6 +4,7 @@ import "errors"
 
 var (
   ErrInternal           = errors.New("an unknown internal error")
+  ErrTokenGenFailed     = errors.New("failed to generate new JWT Token")
 
   ErrTokenGeneration    = errors.New("failed to create auth token")
   ErrTokenMalformed     = errors.New("provided token is malformed")

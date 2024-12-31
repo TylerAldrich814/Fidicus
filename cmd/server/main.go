@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+  "github.com/gorilla/mux"
 
 	log "github.com/sirupsen/logrus"
 
@@ -44,15 +45,16 @@ func main(){
   if err != nil {
     panic("Failed to start Auth Repository")
   }
+
   authService := AuthService.NewService(
     authRepo,
   )
+
   authHTTPHandler := AuthHTTP.NewHttpHandler(authService)
 
-  mux := http.NewServeMux()
+  r := mux.NewRouter()
 
-  if err := authHTTPHandler.RegisterRoutes(mux)  ; err != nil {
-    
+  if err := authHTTPHandler.RegisterRoutes(r)  ; err != nil {
     panic(err)
   }
   

@@ -113,14 +113,14 @@ func(pb *PGRepo) CreateEntity(
   }
 
   // ->> Generate IDs
-  entityID := uuid.New()
-  accountID   := uuid.New()
+  entityID  := domain.NewEntityID()
+  accountID := domain.NewAccountID()
 
   entity := domain.Entity {
     ID          : entityID,
     Name        : entityReq.Name,
     Description : entityReq.Description,
-    AccountIDs  : []uuid.UUID{accountID},
+    AccountIDs  : []domain.AccountID{accountID},
     CreatedAt   : time.Now(),
     UpdatedAt   : time.Now(),
   }
@@ -239,6 +239,7 @@ func(pg *PGRepo) CreateAccount(
       "email" : accountReq.Email,
       "fName" : accountReq.FirstName,
       "lName" : accountReq.LastName,
+      "role"  : accountReq.Role,
     }).Error(fmt.Sprintf("CreateAccount: "+f, data...))
   }
 
@@ -273,10 +274,11 @@ func(pg *PGRepo) CreateAccount(
 
   accountID := uuid.New()
   account := domain.Account {
-    ID              : uuid.New(),
+    ID              : domain.NewAccountID(),
     EntityID        : accountReq.EntityID,
     Email           : accountReq.Email,
     PasswHash       : passwHash,
+    Role            : accountReq.Role,
     FirstName       : accountReq.FirstName,
     LastName        : accountReq.LastName,
     CellphoneNumber : accountReq.CellphoneNumber,
@@ -529,7 +531,7 @@ func(pg *PGRepo) GetAccountIDByEmail(
 func(pg *PGRepo) AccountSignin(
   ctx       context.Context, 
   signinReq domain.AccountSigninReq,
-)( *domain.AuthToken, error){
+)( domain.Token, domain.Token, error){
   var logError = func(e string){
     log.WithFields(log.Fields{
       "Entity"    : signinReq.EntityName,
@@ -540,20 +542,20 @@ func(pg *PGRepo) AccountSignin(
 
   if signinReq.EntityName == "" {
     logError("missing required field(s)")
-    return nil, ErrDBMissingRequiredFields
+    return domain.Token{}, domain.Token{}, ErrDBMissingRequiredFields
   }
 
-  // Query for Account via Account Email:
+  // ->> Query for Account via Account Email:
   var account struct{
-    ID           uuid.UUID   `json:"id"`
-    EntityID     uuid.UUID   `json:"entity_id"`
-    PasswordHash string      `json:"password_hash"`
-    Role         domain.Role `json:"role"`
+    EntityID     domain.EntityID  `json:"entity_id"`
+    ID           domain.AccountID `json:"id"`
+    PasswordHash string           `json:"password_hash"`
+    Role         domain.Role      `json:"role"`
   }
 
   if err := pg.db.QueryRow(
     ctx,
-    `SELECT id, entity_id, password_hash, role accounts WHERE email = $1`,
+    `SELECT id, entity_id, password_hash, role FROM accounts WHERE email = $1`,
     signinReq.Email,
   ).Scan(
     &account.ID,
@@ -563,40 +565,52 @@ func(pg *PGRepo) AccountSignin(
   ); err != nil {
     if errors.Is(err, pgx.ErrNoRows){
       logError("failed to query user by email: " + err.Error())
-      return nil, ErrDBFailedToQuery
+      return domain.Token{}, domain.Token{}, ErrDBFailedToQuery
     }
 
     logError("unknown error occurred: " + err.Error())
-    return nil, ErrDBInternalFailure
+    return domain.Token{}, domain.Token{}, ErrDBInternalFailure
   }
 
-  // Validate Password and PasswordHash
+  // ->> Validate Password and PasswordHash
   if valid := domain.ValidatePassword(
     signinReq.Passw, 
     account.PasswordHash,
   ); !valid {
     logError("Account sign in failed -- Invalid Password")
-    return nil, ErrDBInvalidPassword
+    return domain.Token{}, domain.Token{}, ErrDBInvalidPassword
   }
 
-  // Generate JWT Tokens
-  authTokens, err := domain.GenerateJWTTokens(
+  // ->> Generate JWT Tokens
+  newAccessToken, err := domain.GenerateAccessToken(
     account.ID,
     account.EntityID,
     account.Role,
   )
   if err != nil {
-    logError("failed to create jwt tokens for successful account login")
-    return nil, ErrDBInternalFailure
+    return domain.Token{}, domain.Token{}, domain.ErrTokenGenFailed
   }
 
+  newRefreshToken, err := domain.GenerateRefreshToken(
+    account.ID,
+    account.EntityID,
+    account.Role,
+  )
+  if err != nil {
+    return domain.Token{}, domain.Token{}, domain.ErrTokenGenFailed
+  }
+
+  // ->> Store newly created RefreshToken.
   if err := pg.StoreRefreshToken(
     ctx, 
     account.ID,
-    authTokens.RefreshToken,
-  ); err != nil {}
+    newRefreshToken,
+  ); err != nil {
+    logError("AccountSignin: " + err.Error())
+    return domain.Token{}, domain.Token{}, err
+  }
 
-  return authTokens, ErrDBFailedToInsert
+  return newAccessToken, newRefreshToken, nil
 }
 
 // StoreRefreshToken - Tokes a newly created Refresh Token and Upserts it into the tokens DB table.
@@ -606,13 +620,13 @@ func(pg *PGRepo) AccountSignin(
 //   - ErrDBFailedToInsert
 //   - ErrDBFailedToCommitTX
 func(pg *PGRepo) StoreRefreshToken(
-  ctx     context.Context, 
-  acc_id  uuid.UUID,
-  token   domain.Token,
+  ctx       context.Context, 
+  accountID domain.AccountID,
+  token     domain.Token,
 ) error {
   var logError = func(e string) {
     log.WithFields(log.Fields{
-      "acc_id": acc_id,
+      "accountID": accountID,
     }).Error("StoreRefreshToken: " + e)
   }
 
@@ -627,17 +641,30 @@ func(pg *PGRepo) StoreRefreshToken(
   // Attempt to Upsert newly created Refresh Token:
   if _, err := tx.Exec(
     ctx,
-    `INSERT INTO tokens (acc_id, refresh_token, expires_at)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (acc_id, refresh_token) DO UPDATE
-     SET expires_at = EXCLUDED.expires_at, updated_at = CURRENT_TIMESTAMP`,
-     acc_id,
-     token.SignedToken,
-     token.Expiration,
+    `INSERT INTO tokens (account_id, refresh_token, expires_at, updated_at)
+    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+    ON CONFLICT (refresh_token) DO UPDATE
+    SET expires_at = EXCLUDED.expires_at, updated_at = CURRENT_TIMESTAMP`,
+    accountID,
+    token.SignedToken,
+    token.Expiration,
   ); err != nil {
     logError("failed to upsert refresh token: " + err.Error())
     return ErrDBFailedToInsert
   }
+  // if _, err := tx.Exec(
+  //   ctx,
+  //   `INSERT INTO tokens (account_id, refresh_token, expires_at, updated_at)
+  //    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+  //    ON CONFLICT (refresh_token) DO UPDATE
+  //    SET expires_at = EXCLUDED.expires_at, updated_at = CURRENT_TIMESTAMP`,
+  //    accountID,
+  //    token.SignedToken,
+  //    token.Expiration,
+  // ); err != nil {
+  //   logError("failed to upsert refresh token: " + err.Error())
+  //   return ErrDBFailedToInsert
+  // }
 
   // Attempt to commit DB Transaction:
   if err := tx.Commit(ctx); err != nil {
@@ -654,32 +681,29 @@ func(pg *PGRepo) StoreRefreshToken(
 //   - ErrDBFailedToQuery
 //   - domain.ErrTokenExpired
 func( pg *PGRepo) ValidateRefreshToken(
-  ctx    context.Context,
-  acc_id uuid.UUID,
-  token  string,
+  ctx       context.Context,
+  accountID domain.AccountID,
+  token     string,
 ) error {
   var logError = func(f string, data ...any) {
     log.WithFields(log.Fields{
-      "acc_id": acc_id,
+      "accountID": accountID,
     }).Error(fmt.Sprintf(
       "ValidateRefreshToken:" + f,
       data...,
     ))
   }
-  
-  var dbToken string
   var expiresAt time.Time
 
   // Query for Account Refresh Token:
   if err := pg.db.QueryRow(
     ctx,
-    `SELECT refresh_token, expires_at 
+    `SELECT expires_at 
      FROM tokens 
-     WHERE acc_id = $1 AND refresh_token = $2`,
-    acc_id, 
+     WHERE account_id = $1 AND refresh_token = $2`,
+    accountID, 
     token,
   ).Scan(
-    &dbToken, 
     &expiresAt,
   ); err != nil {
     logError("failed to query for refresh token: %v", err)
@@ -693,4 +717,13 @@ func( pg *PGRepo) ValidateRefreshToken(
   }
 
   return nil
+}
+
+// RefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
+func(pg *PGRepo) RefreshToken(
+  ctx       context.Context, 
+  accountID domain.AccountID,
+)( domain.Token, error ){
+
+  return domain.Token{}, nil
 }

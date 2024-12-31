@@ -4,6 +4,8 @@ SchematixFirst
 
 ## ENV Files && go.sum's
 .env
+go.sum
+
 /**/*/.env
 /**/*/go.sum
 /**/*/tmp

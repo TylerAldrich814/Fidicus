@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
-	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -39,25 +38,46 @@ func(s *Service) CreateSubAccount(
 func(s *Service) AccountSignin(
   ctx       context.Context,
   signInReq domain.AccountSigninReq,
-)( *domain.AuthToken, error ) {
+)( domain.Token, domain.Token, error ) {
   // Call repo, attemp account signin. Returns AuthToken 
-  auth, err := s.repo.AccountSignin(ctx, signInReq)
+  access, refresh, err := s.repo.AccountSignin(ctx, signInReq)
   if err != nil {
-    return nil, err
+    return domain.Token{}, domain.Token{}, err
   }
 
-  return auth, nil
+  return access, refresh, nil
 }
 
+// StoreRefreshToken - A Communication channel between AuthHTTPHandler and AuthRepository.
+//
+// After successfully creating a new RefreshToken. We call this method to upsert our newly
+// genreated Refresh Token.
+func(s *Service) StoreRefreshToken(
+  ctx       context.Context,
+  accountID domain.AccountID,
+  token     domain.Token,
+) error {
+  return s.repo.StoreRefreshToken(
+    ctx,
+    accountID,
+    token,
+  )
+}
 
+// ValidateRefreshToken - Tests whether or not a provided JWT Refresh Token is both
+// valid and not expired. Returning nil if the Refresh Token passes.
+//
+// Potential Errors:
+//   - ErrDBFailedToQuery
+//   - domain.ErrTokenExpired
 func(s *Service) ValidateRefreshToken(
-  ctx    context.Context,
-  acc_id uuid.UUID,
-  token  string,
+  ctx       context.Context,
+  accountID domain.AccountID,
+  token     string,
 ) error {
   if err := s.repo.ValidateRefreshToken(
     ctx,
-    acc_id,
+    accountID,
     token,
   ); err != nil {
     // <TODO> Any Serive Middleware actions..?

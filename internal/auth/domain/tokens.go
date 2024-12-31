@@ -1,18 +1,20 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/TylerAldrich814/Schematix/internal/shared/config"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-  jwtSigningSecret = config.GetEnv("JWT_SECRET_KEY", "TODO")
+  jwtSigningSecret       = config.GetEnv("JWT_SECRET_KEY", "TODO")
+  accessTokenExpiration  = time.Duration(1 * time.Hour)
+  refreshTokenExpiration = time.Duration(7 * 24 * time.Hour)
 )
 
 // Token - For Backend operations. Contains the final Signed JWT Token and it's Expiration
@@ -30,23 +32,23 @@ type AuthToken struct {
 
 // AuthClaims - Defines our custom JWT Token Claims to be added into each Token.
 type AuthClaims struct {
-  UserID    string  `json:"user_id"`
-  EntityID  string  `json:"entity_id"`
-  Role      Role    `json:"role"`
+  EntityID  EntityID `json:"entity_id"`
+  AccountID AccountID `json:"account_id"`
+  Role      Role      `json:"role"`
   jwt.RegisteredClaims
 }
 
-// GenerateToken creates a single JWT Token with a custom expiration time.
-func GenerateToken(
-  userID   uuid.UUID,
-  entityID uuid.UUID,
-  role     Role,
-  exp      time.Duration,
+// generateToken creates a single JWT Token with a custom expiration time.
+func generateToken(
+  accountID AccountID,
+  entityID  EntityID,
+  role      Role,
+  exp       time.Duration,
 )( Token, error ){
   claims := AuthClaims {
-    UserID   : userID.String(),
-    EntityID : entityID.String(),
-    Role     : role,
+    EntityID  : entityID,
+    AccountID : accountID,
+    Role      : role,
     RegisteredClaims : jwt.RegisteredClaims{
       ExpiresAt : jwt.NewNumericDate(time.Now().Add(exp)),
       IssuedAt  : jwt.NewNumericDate(time.Now()),
@@ -54,7 +56,7 @@ func GenerateToken(
   }
 
   accessToken := jwt.NewWithClaims(
-    &jwt.SigningMethodHMAC{},
+    jwt.SigningMethodHS256,
     claims,
   )
 
@@ -69,28 +71,85 @@ func GenerateToken(
   }, nil
 }
 
+func RefreshToken(
+  ctx  context.Context,
+  token string,
+)( Token, error ){
+  // token, err := generateToken(
+  //
+  // )
 
-// GenerateJWTTokens creates both Access and Regresh JWT Tokens for a user.
+  return Token{}, nil
+}
+
+// GenerateRefreshToken - Creates a JWT Access Token with AuthClaims attached.
+//   Expiration is set to 'accessTokenExpiration'
+func GenerateAccessToken(
+  accountID AccountID,
+  entityID  EntityID,
+  role      Role,
+)( Token, error ){
+  accessToken, err := generateToken(
+    accountID,
+    entityID,
+    role,
+    accessTokenExpiration,
+  )
+  if err != nil {
+    log.WithFields(log.Fields{
+      "accountID" : accountID,
+      "entityID"  : entityID,
+      "role"      : role,
+    }).Error(fmt.Sprintf("GenerateAccessToken: %v", err))
+    return Token{}, ErrTokenGenFailed
+  }
+  return accessToken, nil
+}
+
+// GenerateRefreshToken - Creates a JWT Refresh Token with AuthClaims attached
+//   Expiration is set to 'refreshTokenExpiration'
+func GenerateRefreshToken(
+  accountID  AccountID,
+  entityID   EntityID,
+  role       Role,
+)( Token, error ){
+  refreshToken, err := generateToken(
+    accountID,
+    entityID,
+    role,
+    refreshTokenExpiration,
+  )
+  if err != nil {
+    log.WithFields(log.Fields{
+      "accountID" : accountID,
+      "entityID"  : entityID,
+      "role"      : role,
+    }).Error(fmt.Sprintf("GenerateRefreshToken: %v", err))
+    return Token{}, ErrTokenGenFailed
+  }
+
+  return refreshToken, nil
+}
+
+// GenerateJWTTokens creates both Access and Regresh JWT Tokens for a account.
 //   - Access Token will have an exiration of 1 hour
 //   - Refresh Token will have an expiration of 7 days.
 func GenerateJWTTokens(
-  userID   uuid.UUID,
-  entityID uuid.UUID,
-  role     Role,
+  accountID AccountID,
+  entityID  EntityID,
+  role      Role,
 )( *AuthToken, error ){
-  accessToken, err := GenerateToken(
-    userID,
+  accessToken, err := GenerateAccessToken(
+    accountID,
     entityID,
     role,
-    time.Duration(1 * time.Hour),
   )
   if err != nil {
-    log.Printf("Failed to create AcceessToken: %v", err)
-    return nil, ErrTokenGeneration
+    return nil, err
   }
 
-  refreshToken, err := GenerateToken(
-    userID,
+  refreshToken, err := generateToken(
+    accountID,
     entityID,
     role,
     time.Duration(7 * 24 * time.Hour),

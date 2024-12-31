@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"github.com/google/uuid"
 )
 
 // AuthRepository defines our Authentication's storage logic.
@@ -25,9 +24,13 @@ type AuthRepository interface {
   // GetAccountIDByName - Query and returns an Accounts ID via it's Email.
   GetAccountIDByEmail(context.Context, string)( AccountID, error )
   // AccountSignin - Attempts a Account Sign in event.
-  AccountSignin(context.Context, AccountSigninReq)( *AuthToken, error)
+  AccountSignin(context.Context, AccountSigninReq)( Token, Token, error)
   // RefreshToken - Refreshes an account's JWT Tokens.
-  StoreRefreshToken(ctx context.Context, acc_id uuid.UUID, token Token) error
+  StoreRefreshToken(ctx context.Context, acc_id AccountID, token Token) error
   // ValidateRefreshToken - Validates an Refresh Token by querying 'tokens' and detecting if expired.
-  ValidateRefreshToken(ctx context.Context, acc_id uuid.UUID, token string) error
+  ValidateRefreshToken(ctx context.Context, acc_id AccountID, token string) error
+  // RefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
+  // RefreshToken is wrapped with this AuthRepository function in order to verify that the caller is 
+  // a valid account holder.
+  RefreshToken(ctx context.Context, accountID AccountID)( Token, error )
 }

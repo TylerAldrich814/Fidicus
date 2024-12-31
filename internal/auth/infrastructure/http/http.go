@@ -1,21 +1,23 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
+
+  "github.com/gorilla/mux"
 
 	"github.com/TylerAldrich814/Schematix/internal/auth/application"
 	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
 	repo "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Schematix/internal/shared/utils"
-	"github.com/google/uuid"
 )
 
 type AuthHTTPHandler struct {
   service *application.Service
 }
-
 
 func NewHttpHandler(
   service *application.Service,
@@ -24,27 +26,41 @@ func NewHttpHandler(
 }
 
 // RegisterRoutes - Creates and Registers all of Schematix's Authentication HTTP Routes
-func(a *AuthHTTPHandler) RegisterRoutes( mux *http.ServeMux,
-) error {
+func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
   // <TODO> :: Client-side File Serving for Authenticaion purposes(?) 
   // mux.Handle("/", http.FileServer(http.Dir("public")))
 
-  mux.HandleFunc(
-    "POST /api/auth/signup/{role}",
+  public := r.PathPrefix("/api/auth").Subrouter()
+  public.HandleFunc(
+    "/signup/{role}",
     a.Signup,
-  )
-  mux.HandleFunc(
-    "POST /api/auth/signin",
+  ).Methods("POST")
+
+  public.HandleFunc(
+    "/signin",
     a.Signin,
-  )
-  mux.HandleFunc(
-    "POST /api/auth/validate_refresh_token/",
-    a.ValidateRefreshToken,
-  )
+  ).Methods("POST")
+
+  public.HandleFunc(
+    "/refresh",
+    a.RefreshToken,
+  ).Methods("POST")
+
+  protected := r.PathPrefix("/api/protected").Subrouter()
+  protected.Use(AuthMiddleware)
+
+  // protected.HandleFunc(
+  //   "/signout".
+  //   a.Signout,
+  // ).Methods("POST")
 
   return nil
 }
 
+func(a *AuthHTTPHandler) RegisterProtectedRoutes() error {
+
+  return nil
+}
 
 // Signup -- A centralized HTTP Handler for Schematix Account Signups. Handles both 
 // Entity and SubAccount signups. Which one is determined by the URL Query "role". 
@@ -77,7 +93,7 @@ func(a *AuthHTTPHandler) signupEntity(w http.ResponseWriter, r *http.Request) {
     return
   }
   // ->> Verify all required data was included in JSON Body:
-  if req.Entity.Name == ""   || 
+  if req.Entity.Name   == "" || 
      req.Account.Email == "" || 
      req.Account.Passw == "" ||
      req.Account.Role  == domain.AccessRoleUnspecified {
@@ -122,8 +138,8 @@ func(a *AuthHTTPHandler) signupSubAccount(w http.ResponseWriter, r *http.Request
     return
   }
 
-  if account.EntityID == uuid.Nil ||
-     account.Email    == ""       ||
+  if account.EntityID == domain.NilEntity() ||
+     account.Email    == ""                 ||
      account.Passw    == "" {
        http.Error(w, "<json error>missing required fields", http.StatusBadRequest)
        return
@@ -166,7 +182,7 @@ func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
        return
      }
   
-  tokens, err := a.service.AccountSignin(
+  access, refresh, err := a.service.AccountSignin(
     r.Context(),
     signinReq,
   )
@@ -178,20 +194,81 @@ func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
     }
     return
   }
+  var tokens = struct {
+    AccessToken  domain.Token `json:"access_token"`
+    RefreshToken domain.Token `json:"refresh_token"`
+  }{
+    AccessToken  : access,
+    RefreshToken : refresh,
+  }
+
   utils.WriteJson(w,
     http.StatusAccepted,
     tokens,
   )
 }
 
-// ValidateRefreshToken - An HTTP URL for validating a refreshtoken.
-func(a *AuthHTTPHandler) ValidateRefreshToken(w http.ResponseWriter, r *http.Request) {
-  var req struct {
-    AccountID    domain.AccountID `json:"account_id"`,
-    RefreshToken string           `json:"refresh_token"`,
-  }
+func(a *AuthHTTPHandler) Signout(w http.ResponseWriter, r *http.Request) {
 
-  err := a.service.ValidateRefreshToken(r.Context(),)
+
 }
 
+// ValidateRefreshToken - An HTTP URL for validating a refreshtoken.
+func(a *AuthHTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+  var req struct {
+    RefreshToken string `json:"refresh_token"`
+  }
 
+  if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+    http.Error(w, "invalid request body", http.StatusBadRequest)
+    return
+  }
+
+  // ->> Validate and extract Claims from user provided Refresh Token.
+  claims, err := domain.VerifyToken(req.RefreshToken)
+  if err != nil {
+    http.Error(w, "invalid or expired refresh token", http.StatusUnauthorized)
+    return
+  }
+
+  ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+  defer cancel()
+
+  if err := a.service.ValidateRefreshToken(
+    ctx,
+    claims.AccountID,
+    req.RefreshToken,
+  ); err != nil {
+    http.Error(w, "refresh token invalid or revoked", http.StatusUnauthorized)
+    return
+  }
+
+  // ->> Generate new JWT Tokens.
+  newAccessToken, err := domain.GenerateAccessToken(claims.AccountID, claims.EntityID, claims.Role)
+  if err != nil {
+    http.Error(w, "failed to create access token", http.StatusInternalServerError)
+    return
+  }
+
+  newRefreshToken, err := domain.GenerateRefreshToken(claims.AccountID, claims.EntityID, claims.Role)
+  if err != nil {
+    http.Error(w, "failed to create refrehs token", http.StatusInternalServerError)
+    return
+  }
+
+  // ->> Store new Refresh Token
+  if err := a.service.StoreRefreshToken(ctx, claims.AccountID, newRefreshToken); err != nil {
+    http.Error(w, "failed to store refresh token", http.StatusInternalServerError)
+    return
+  }
+
+  // ->> Return new JWT Tokens
+  resp := map[string]string {
+    "access_token"  : newAccessToken.SignedToken,
+    "refresh_token" : newRefreshToken.SignedToken,
+  }
+  utils.WriteJson(w,
+    http.StatusOK,
+    resp,
+  )
+}
