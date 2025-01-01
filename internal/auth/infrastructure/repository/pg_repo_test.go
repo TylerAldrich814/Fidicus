@@ -19,7 +19,6 @@ func setupTestDB(ctx context.Context) domain.AuthRepository {
   config.InitLogger()
 
   // ->> Auth Repository Initialization:
-  log.Warn()
   dbConfig := config.GetDBConfig()
   dsn := dbConfig.GetPostgresURI()
 

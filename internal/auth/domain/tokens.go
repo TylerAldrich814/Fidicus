@@ -23,6 +23,12 @@ type Token struct {
   Expiration  time.Time `json:"expiration"`
 }
 
+// TokenResponse - Defines an HTTP Response for when we return both tokens at once.
+type TokenResponse struct {
+  AccessToken  Token `json:"access_token"`
+  RefreshToken Token `json:"refresh_token"`
+}
+
 // AuthToken - Defines a structure for passing both Access and Refresh Tokens. 
 type AuthToken struct {
   AccessToken  Token `json:"access_token"`

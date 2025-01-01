@@ -9,6 +9,7 @@ var (
   ErrDBFailedCreation        = errors.New("failed to create postgres database")
   ErrDBFailedPing            = errors.New("failed to ping postgres database")
 
+  ErrDBUnauthorized          = errors.New("unauthorized to make this DB request")
   ErrDBFailedToBeginTX       = errors.New("failed to create new DB Transaction")
   ErrDBFailedToCommitTX      = errors.New("database transaction commit failed")
 

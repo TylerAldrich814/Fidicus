@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/signal"
   "github.com/gorilla/mux"
-
-	log "github.com/sirupsen/logrus"
 
 	AuthService "github.com/TylerAldrich814/Schematix/internal/auth/application"
 	AuthRepo "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/repository"
@@ -34,7 +31,6 @@ func main(){
   // <TODO> Tracker: jaegar
 
   // ->> Auth Repository Initialization:
-  log.Warn()
   dbConfig := config.GetDBConfig()
   dsn := dbConfig.GetPostgresURI()
 

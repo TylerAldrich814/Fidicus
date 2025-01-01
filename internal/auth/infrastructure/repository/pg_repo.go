@@ -135,7 +135,7 @@ func(pb *PGRepo) CreateEntity(
     EntityID        : entityID,
     Email           : accountReq.Email,
     PasswHash       : hashPassw,
-    Role            : domain.AccessRoleAdmin,
+    Role            : domain.AccessRoleEntity,
     FirstName       : accountReq.FirstName,
     LastName        : accountReq.LastName,
     CellphoneNumber : accountReq.CellphoneNumber,
@@ -222,6 +222,7 @@ func(pb *PGRepo) CreateEntity(
 // CreateAccount - Creates a new Entity Account.
 //
 // Potential Errors:
+//   - ErrDBUnauthorized
 //   - ErrDBFailedToQuery
 //   - ErrDBEntityNotFound
 //   - ErrDBFailedToBeginTX
@@ -241,6 +242,11 @@ func(pg *PGRepo) CreateAccount(
       "lName" : accountReq.LastName,
       "role"  : accountReq.Role,
     }).Error(fmt.Sprintf("CreateAccount: "+f, data...))
+  }
+
+  if accountReq.Role == domain.AccessRoleEntity {
+    logError("Access Role Entity can only be created during Entity creation")
+    return domain.NilAccount(), ErrDBUnauthorized
   }
 
   // ->> Check if Entity Exists:
@@ -587,7 +593,7 @@ func(pg *PGRepo) AccountSignin(
     account.EntityID,
     account.Role,
   )
-  if err != nil {
+  if err != nil || newAccessToken.SignedToken == "" {
     return domain.Token{}, domain.Token{}, domain.ErrTokenGenFailed
   }
 
@@ -596,7 +602,7 @@ func(pg *PGRepo) AccountSignin(
     account.EntityID,
     account.Role,
   )
-  if err != nil {
+  if err != nil || newRefreshToken.SignedToken == "" {
     return domain.Token{}, domain.Token{}, domain.ErrTokenGenFailed
   }
 
@@ -726,4 +732,10 @@ func(pg *PGRepo) RefreshToken(
 )( domain.Token, error ){
 
   return domain.Token{}, nil
+}
+
+func(pg *PGRepo) Shutdown(){
+  log.Info("Shutting Auth Repo Down...")
+
+  pg.db.Close()
 }

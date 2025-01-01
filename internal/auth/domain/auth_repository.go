@@ -10,7 +10,6 @@ type AuthRepository interface {
   CreateEntity(context.Context, EntitySignupReq, AccountSignupReq)( EntityID, AccountID, error)
   // CreateAccount - Creates a new Sub Account. 
   CreateAccount(context.Context, AccountSignupReq)( AccountID, error)
-
   // RemoveEntityByID - <TEMP> Removes an entity via it's ID
   RemoveEntityByID(context.Context, EntityID) error
   // RemoveEntity - <TEMP> Removes an entity by passing the name
@@ -23,7 +22,7 @@ type AuthRepository interface {
   GetEntityIDByName(context.Context, string)( EntityID, error )
   // GetAccountIDByName - Query and returns an Accounts ID via it's Email.
   GetAccountIDByEmail(context.Context, string)( AccountID, error )
-  // AccountSignin - Attempts a Account Sign in event.
+  // AccountSignin - Attempts a Account Sign in event: returns AccessToken, RefreshToken, err
   AccountSignin(context.Context, AccountSigninReq)( Token, Token, error)
   // RefreshToken - Refreshes an account's JWT Tokens.
   StoreRefreshToken(ctx context.Context, acc_id AccountID, token Token) error
@@ -33,4 +32,7 @@ type AuthRepository interface {
   // RefreshToken is wrapped with this AuthRepository function in order to verify that the caller is 
   // a valid account holder.
   RefreshToken(ctx context.Context, accountID AccountID)( Token, error )
+
+  // Shutdown - Allows for graceful shutdown operations.
+  Shutdown()
 }

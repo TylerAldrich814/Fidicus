@@ -1,18 +1,22 @@
-package http
+package httnp
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
-  "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 
 	"github.com/TylerAldrich814/Schematix/internal/auth/application"
 	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
+	"github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/http/middleware"
 	repo "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Schematix/internal/shared/utils"
+
+	// log "github.com/sirupsen/logrus"
 )
 
 type AuthHTTPHandler struct {
@@ -26,14 +30,14 @@ func NewHttpHandler(
 }
 
 // RegisterRoutes - Creates and Registers all of Schematix's Authentication HTTP Routes
-func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
   // <TODO> :: Client-side File Serving for Authenticaion purposes(?) 
   // mux.Handle("/", http.FileServer(http.Dir("public")))
 
+func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
   public := r.PathPrefix("/api/auth").Subrouter()
   public.HandleFunc(
-    "/signup/{role}",
-    a.Signup,
+    "/signup_entity",
+    a.SignupEntity,
   ).Methods("POST")
 
   public.HandleFunc(
@@ -46,9 +50,33 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
     a.RefreshToken,
   ).Methods("POST")
 
-  protected := r.PathPrefix("/api/protected").Subrouter()
-  protected.Use(AuthMiddleware)
+  protected := r.PathPrefix("/api/pauth").Subrouter()
+  protected.Use(middleware.AuthMiddleware)
 
+  protected.Handle(
+    "/signup_account",
+    middleware.RoleAuthMiddleware(
+      http.HandlerFunc(a.SignupSubAccount),
+      domain.AccessRoleAdmin,
+    ),
+  ).Methods("POST")
+
+  protected.Handle(
+    "/remove_entity",
+    middleware.RoleAuthMiddleware(
+      http.HandlerFunc(a.RemoveEntity),
+      domain.AccessRoleEntity,
+    ),
+  ).Methods("POST")
+
+  protected.Handle(
+    "/remove_account",
+    middleware.RoleAuthMiddleware(
+      http.HandlerFunc(a.RemoveSubAccount),
+      domain.AccessRoleAdmin,
+    ),
+  ).Methods("POST")
+  
   // protected.HandleFunc(
   //   "/signout".
   //   a.Signout,
@@ -57,31 +85,9 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
   return nil
 }
 
-func(a *AuthHTTPHandler) RegisterProtectedRoutes() error {
-
-  return nil
-}
-
-// Signup -- A centralized HTTP Handler for Schematix Account Signups. Handles both 
-// Entity and SubAccount signups. Which one is determined by the URL Query "role". 
-// If role == "entity", then we will expect the provided JSON body to contain the data
-// For both an Entity and SubAccount. If now, we return an error.
-func(a *AuthHTTPHandler) Signup(w http.ResponseWriter, r *http.Request) {
-  role := r.PathValue("role")
-
-  switch role {
-  case "entity":
-    a.signupEntity(w, r)
-  case "subaccount":
-    a.signupSubAccount(w, r)
-  default:
-    http.Error(w, "invalid role", http.StatusBadRequest)
-  }
-}
-
-// signupEntity - Attempts to create both a brand new Entity account and finally a new Admin-leveled 
-// SubAccount.
-func(a *AuthHTTPHandler) signupEntity(w http.ResponseWriter, r *http.Request) {
+// SignupEntity: |PUBLIC| Allows for the creation of a new Entity + AccessRoleEntity Account.
+// 
+func(a *AuthHTTPHandler) SignupEntity(w http.ResponseWriter, r *http.Request) {
   var req struct {
     Entity  domain.EntitySignupReq
     Account domain.AccountSignupReq
@@ -116,21 +122,24 @@ func(a *AuthHTTPHandler) signupEntity(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  ids := struct {
+    EntityID  domain.EntityID  `json:"entity_id"`
+    AccountID domain.AccountID  `json:"account_id"`
+  }{
+    EntityID  : eid,
+    AccountID : aid,
+  }
+
   utils.WriteJson(
     w,
     http.StatusOK,
-    struct {
-      EntityID  domain.EntityID  `json:"entity_id"`
-      AccountID domain.AccountID `json:"account_id"`
-    }{
-      EntityID: eid,
-      AccountID: aid,
-    },
+    ids,
   )
 }
 
+
 // signupSubAccount - Attempts to create a Subaccount for a specified Entity. 
-func(a *AuthHTTPHandler) signupSubAccount(w http.ResponseWriter, r *http.Request) {
+func(a *AuthHTTPHandler) SignupSubAccount(w http.ResponseWriter, r *http.Request) {
   var account domain.AccountSignupReq
 
   if err := json.NewDecoder(r.Body).Decode(&account); err != nil {
@@ -174,11 +183,18 @@ func(a *AuthHTTPHandler) signupSubAccount(w http.ResponseWriter, r *http.Request
 func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
   var signinReq domain.AccountSigninReq
 
+  if err := json.NewDecoder(r.Body).Decode(&signinReq); err != nil {
+    http.Error(w, "failed to decode json body", http.StatusBadRequest)
+  }
+
   if signinReq.EntityName == "" ||
      signinReq.Email      == "" ||
      signinReq.Passw      == "" ||
      signinReq.Role       == domain.AccessRoleUnspecified {
-       http.Error(w, "<json error>missing required fieds", http.StatusBadRequest)
+       http.Error(
+         w, 
+         fmt.Sprintf("<json error>missing required fields"), 
+         http.StatusBadRequest)
        return
      }
   
@@ -189,11 +205,16 @@ func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
   if err != nil {
     if errors.Is(err, repo.ErrDBInvalidPassword) {
       http.Error(w, "Invalid Password", http.StatusNotAcceptable)
-    } else {
-      http.Error(w, err.Error(), http.StatusBadRequest)
-    }
+      return
+    } 
+    http.Error(w, err.Error(), http.StatusInternalServerError)
     return
   }
+
+  if access.SignedToken == "" || refresh.SignedToken == "" {
+    panic("Signin: FAILED TO CREATE JWT TOKENS")
+  }
+
   var tokens = struct {
     AccessToken  domain.Token `json:"access_token"`
     RefreshToken domain.Token `json:"refresh_token"`
@@ -210,7 +231,6 @@ func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
 
 func(a *AuthHTTPHandler) Signout(w http.ResponseWriter, r *http.Request) {
 
-
 }
 
 // ValidateRefreshToken - An HTTP URL for validating a refreshtoken.
@@ -221,6 +241,11 @@ func(a *AuthHTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
   if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
     http.Error(w, "invalid request body", http.StatusBadRequest)
+    return
+  }
+
+  if req.RefreshToken == "" {
+    http.Error(w, "missing refresh token", http.StatusBadRequest)
     return
   }
 
@@ -263,12 +288,49 @@ func(a *AuthHTTPHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
   }
 
   // ->> Return new JWT Tokens
-  resp := map[string]string {
-    "access_token"  : newAccessToken.SignedToken,
-    "refresh_token" : newRefreshToken.SignedToken,
+  resp := domain.TokenResponse {
+    AccessToken  : newAccessToken,
+    RefreshToken : newRefreshToken,
   }
+
   utils.WriteJson(w,
     http.StatusOK,
     resp,
   )
+}
+
+func(a *AuthHTTPHandler) RemoveEntity(w http.ResponseWriter, r *http.Request){
+  claims, ok := r.Context().Value(middleware.ClaimsKey).(*domain.AuthClaims)
+  if !ok {
+    http.Error(w, "missing claims in context", http.StatusInternalServerError)
+    return
+  }
+
+  // Remove Entity via ID
+  if err := a.service.RemoveEntity(r.Context(), claims.EntityID); err != nil {
+    http.Error(w, "failed to remove entity", http.StatusInternalServerError)
+  }
+
+  w.WriteHeader(http.StatusOK)
+}
+
+func(a *AuthHTTPHandler) RemoveSubAccount(w http.ResponseWriter, r *http.Request){
+  // Extract and Unmarshal EntityID and AccountID provded via AuthMiddleware:
+  claims, ok := r.Context().Value(middleware.ClaimsKey).(*domain.AuthClaims)
+  if !ok {
+    http.Error(w, "missing claims in context", http.StatusUnauthorized)
+    return
+  }
+
+  // Remove Account via ID
+  if err := a.service.RemoveSubAccount(r.Context(), claims.AccountID); err != nil {
+    http.Error(w, "failed to remove account", http.StatusInternalServerError)
+  }
+
+  w.WriteHeader(http.StatusOK)
+}
+
+// Shutdown - Allows for graceful shutdown 
+func(a *AuthHTTPHandler) Shutdown(){
+  a.service.Shutdown()
 }

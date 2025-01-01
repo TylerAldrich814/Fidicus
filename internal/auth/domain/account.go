@@ -1,10 +1,11 @@
 package domain
 
 import (
-  "time"
+	"fmt"
+	"time"
 
-  "golang.org/x/crypto/bcrypt"
-  "github.com/google/uuid"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AccountID uuid.UUID
@@ -17,6 +18,29 @@ func NilAccount() AccountID{
 // NewAccountID - creates and returns a new AccountID
 func NewAccountID() AccountID{
   return AccountID(uuid.New())
+}
+
+func(a *AccountID)String()string {
+  return uuid.UUID(*a).String()
+}
+
+func(id AccountID) MarshalJSON() ([]byte, error) {
+  return []byte(fmt.Sprintf("\"%s\"", id.String())), nil
+}
+
+func(id *AccountID) UnmarshalJSON(data []byte) error {
+  str := string(data)
+  if len(str) > 1 && str[0] == '"' && str[len(str)-1] == '"' {
+    str = str[1 : len(str)-1]
+  }
+
+  parsed, err := uuid.Parse(str)
+  if err != nil {
+    return err
+  }
+
+  *id = AccountID(parsed)
+  return nil
 }
 
 // Account defines the default Entity SubAccount with all of it's paramters.

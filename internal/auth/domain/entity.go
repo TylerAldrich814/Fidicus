@@ -1,11 +1,13 @@
 package domain
 
 import (
-  "time"
-  "github.com/google/uuid"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
 )
 
-type EntityID uuid.UUID
+type EntityID uuid.UUID 
 
 // NilEntity - Returns a nil EntityID
 func NilEntity() EntityID{
@@ -15,6 +17,29 @@ func NilEntity() EntityID{
 // NewEntityID - Creates and returns a new EntityID,
 func NewEntityID() EntityID {
   return EntityID(uuid.New())
+}
+
+func(e *EntityID)String()string {
+  return uuid.UUID(*e).String()
+}
+
+func(id EntityID) MarshalJSON() ([]byte, error) {
+  return []byte(fmt.Sprintf("\"%s\"", id.String())), nil
+}
+
+func(id *EntityID) UnmarshalJSON(data []byte) error {
+  str := string(data)
+  if len(str) > 1 && str[0] == '"' && str[len(str)-1] == '"' {
+    str = str[1 : len(str)-1]
+  }
+
+  parsed, err := uuid.Parse(str)
+  if err != nil {
+    return err
+  }
+
+  *id = EntityID(parsed)
+  return nil
 }
 
 // Entity defines an Entity. An object that connects a plethora of SubAccounts with metadata associated 

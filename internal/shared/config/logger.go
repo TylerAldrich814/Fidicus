@@ -13,7 +13,7 @@ func InitLogger(){
   Logger = logrus.New()
 
   switch strings.ToLower(GetAppConfig().LogLevel) {
-  case "tracec":
+  case "trace":
     Logger.SetLevel(logrus.TraceLevel)
   case "debug":
     Logger.SetLevel(logrus.DebugLevel)

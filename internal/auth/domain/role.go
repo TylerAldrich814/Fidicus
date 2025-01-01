@@ -24,3 +24,18 @@ var roleFromString = map[string]Role{
   "access_role_read_only"   : AccessRoleReadOnly,
 }
 
+// Score -- Converts Role severity level into an uint with 4 being the highest possible score.
+func(role *Role) Score() uint {
+  switch *role {
+  case AccessRoleEntity:
+    return 4
+  case AccessRoleAdmin:
+    return 3
+  case AccessRoleAccount:
+    return 2
+  case AccessRoleReadOnly:
+    return 1
+  default: 
+    return 0
+  }
+}

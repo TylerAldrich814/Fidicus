@@ -1,4 +1,4 @@
-package http
+package middleware
 
 import (
 	"context"
@@ -12,6 +12,10 @@ import (
 // AuthMiddleware - Middleware for verifying JWT Token existance and validity.
 func AuthMiddleware(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    if next == nil {
+      http.Error(w, "internal server error: no handler", http.StatusInternalServerError)
+      return
+    }
     // -> Extract Authorization Header:
     authHeader := r.Header.Get("Authorization")
     if authHeader == "" {
@@ -31,7 +35,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
       )
       return
     }
-
     tokenString := tokenParts[1]
 
     claims, err := domain.VerifyToken(tokenString)
@@ -49,11 +52,15 @@ func AuthMiddleware(next http.Handler) http.Handler {
       }
       return
     }
-
-    ctx := context.WithValue(r.Context(), "account_id", claims.AccountID)
-    ctx  = context.WithValue(ctx, "entity_id", claims.EntityID)
-    ctx  = context.WithValue(ctx, "role", claims.Role)
-
-    next.ServeHTTP(w, r.WithContext(ctx))
+    // next.ServeHTTP(w, r.WithContext(ctx))
+    next.ServeHTTP(w, 
+      r.WithContext(
+        context.WithValue(
+          r.Context(), 
+          ClaimsKey,
+          claims,
+        ),
+      ),
+    )
   })
 }

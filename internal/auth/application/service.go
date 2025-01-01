@@ -16,9 +16,15 @@ func NewService(
   return &Service{ repo }
 }
 
-// CreateEntity - First attempts to create the Root account(i.e., the Entity)
-// If Successful, we then call 'CreateSubAccount', creating the Entity's first Subaccount
-// if a Admin level Role. And Finally, we return the EntityID and AccountID
+// Shutdown - Allows for graceful shutdown operations.
+func(s *Service) Shutdown(){
+  s.repo.Shutdown()
+}
+
+// CreateEntity - First attempts to create An Entity Account If Successful,
+// We then call create an Account with AccessRoleEntity privileges. When
+// both an Entity and Account are created, 
+// we return the EntityID and AccountID
 func(s *Service) CreateEntity(
   ctx     context.Context,
   entity  domain.EntitySignupReq,
@@ -27,12 +33,31 @@ func(s *Service) CreateEntity(
   return s.repo.CreateEntity(ctx, entity, account)
 }
 
+// RemoveEntity: <TODO> For the time being, this calls repo.RemoveEntityByID and completely
+// wipes Entity from our DB. In the future, this will only disable  entity and
+// all of Entity's SubAccunts from accessing Schematix.
+func(s *Service) RemoveEntity(
+  ctx      context.Context,
+  entityID domain.EntityID,
+) error {
+  return s.repo.RemoveEntityByID(ctx, entityID)
+}
+
 // CreateSubAccount attempts to create a Sub Account under a specified Entity.
 func(s *Service) CreateSubAccount(
   ctx      context.Context,
   account  domain.AccountSignupReq,
 )( domain.AccountID, error) {
   return s.repo.CreateAccount(ctx, account)
+}
+
+// RemoveSubAccount - <TODO> For the time beign, this calls repo.RemoveAccountByID and completely 
+// wipes Account from our DB.In the future, this will only disable account without removing all data.
+func(s *Service) RemoveSubAccount(
+  ctx       context.Context,
+  accountID domain.AccountID,
+) error {
+  return s.repo.RemoveAccountByID(ctx, accountID)
 }
 
 func(s *Service) AccountSignin(
