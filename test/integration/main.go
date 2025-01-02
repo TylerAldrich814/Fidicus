@@ -18,11 +18,11 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	AuthService "github.com/TylerAldrich814/Schematix/internal/auth/application"
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
-	AuthHTTP "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/http"
-	AuthRepo "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/repository"
-	"github.com/TylerAldrich814/Schematix/internal/shared/config"
+	AuthService "github.com/TylerAldrich814/Fidicus/internal/auth/application"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	AuthHTTP "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http"
+	AuthRepo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 )
 
 type SignupReq struct {

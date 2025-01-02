@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/TylerAldrich814/Schematix/internal/shared/config"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 )

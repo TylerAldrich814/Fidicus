@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -55,7 +55,7 @@ func( pg *PGRepo ) Close(){
   pg.db.Close()
 }
 
-// CreateEntity -- Creates a new Schematix Entity with Root Privileges.
+// CreateEntity -- Creates a new Fidicus Entity with Root Privileges.
 //
 // Potential Errors:
 //   - ErrDBFailedToQuery
@@ -619,7 +619,7 @@ func(pg *PGRepo) AccountSignin(
   return newAccessToken, newRefreshToken, nil
 }
 
-// AccountSignout - Signs the account out of Schematix. Removing their refresh token from  
+// AccountSignout - Signs the account out of Fidicus. Removing their refresh token from  
 // our tokens DB. By the time this function is called. The user should have already been
 // validated via their provided access token.
 func(pg *PGRepo) AccountSignout(

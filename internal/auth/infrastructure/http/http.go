@@ -10,11 +10,11 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/TylerAldrich814/Schematix/internal/auth/application"
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
-	"github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/http/middleware"
-	repo "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/repository"
-	"github.com/TylerAldrich814/Schematix/internal/shared/utils"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/application"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http/middleware"
+	repo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/utils"
 )
 
 type AuthHTTPHandler struct {
@@ -27,7 +27,7 @@ func NewHttpHandler(
   return &AuthHTTPHandler{ service }
 }
 
-// RegisterRoutes - Creates and Registers all of Schematix's Authentication HTTP Routes
+// RegisterRoutes - Creates and Registers all of Fidicus's Authentication HTTP Routes
   // <TODO> :: Client-side File Serving for Authenticaion purposes(?) 
   // mux.Handle("/", http.FileServer(http.Dir("public")))
 

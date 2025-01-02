@@ -7,8 +7,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
-	"github.com/TylerAldrich814/Schematix/internal/shared/config"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 	"github.com/stretchr/testify/assert"
 )
 

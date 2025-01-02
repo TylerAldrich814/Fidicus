@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 )
 
 // AuthMiddleware - Middleware for verifying JWT Token existance and validity.

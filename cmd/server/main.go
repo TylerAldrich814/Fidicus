@@ -6,10 +6,10 @@ import (
 	"os/signal"
   "github.com/gorilla/mux"
 
-	AuthService "github.com/TylerAldrich814/Schematix/internal/auth/application"
-	AuthRepo "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/repository"
-	AuthHTTP "github.com/TylerAldrich814/Schematix/internal/auth/infrastructure/http"
-	"github.com/TylerAldrich814/Schematix/internal/shared/config"
+	AuthService "github.com/TylerAldrich814/Fidicus/internal/auth/application"
+	AuthRepo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
+	AuthHTTP "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 )
 
 var (

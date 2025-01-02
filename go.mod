@@ -1,4 +1,4 @@
-module github.com/TylerAldrich814/Schematix
+module github.com/TylerAldrich814/Fidicus
 
 go 1.23.4
 

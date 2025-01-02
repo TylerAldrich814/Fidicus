@@ -2,7 +2,7 @@ package application
 
 import (
 	"context"
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 )
 
 type Service struct {
@@ -37,7 +37,7 @@ func(s *Service) CreateEntity(
 
 // RemoveEntity: <TODO> For the time being, this calls repo.RemoveEntityByID and completely
 // wipes Entity from our DB. In the future, this will only disable  entity and
-// all of Entity's SubAccunts from accessing Schematix.
+// all of Entity's SubAccunts from accessing Fidicus.
 func(s *Service) RemoveEntity(
   ctx      context.Context,
   entityID domain.EntityID,

@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"net/http"
-	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 )
 
 // RoleAuthMiddleware -- 2nd degree middleware under AuthMiddleware:

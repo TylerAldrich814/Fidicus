@@ -9,7 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 
-	"github.com/TylerAldrich814/Schematix/internal/shared/config"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
