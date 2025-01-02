@@ -230,6 +230,7 @@ func(pb *PGRepo) CreateEntity(
 //   - ErrDBAccountAlreadyExists
 //   - ErrDBFailedToInsert
 //   - ErrDBFailedToCommitTX
+//   - ErrDBMissingRequiredFields
 func(pg *PGRepo) CreateAccount(
   ctx        context.Context, 
   accountReq domain.AccountSignupReq,
@@ -237,6 +238,7 @@ func(pg *PGRepo) CreateAccount(
   var logError = func(f string, data ...any) {
     log.WithFields(log.Fields{
       "eid"   : accountReq.EntityID,
+      "ename" : accountReq.EntityName,
       "email" : accountReq.Email,
       "fName" : accountReq.FirstName,
       "lName" : accountReq.LastName,
@@ -244,17 +246,38 @@ func(pg *PGRepo) CreateAccount(
     }).Error(fmt.Sprintf("CreateAccount: "+f, data...))
   }
 
+  // <TODO> :: Should we allow access_role_entity accounts create fellow role_account_entitys ??
   if accountReq.Role == domain.AccessRoleEntity {
     logError("Access Role Entity can only be created during Entity creation")
     return domain.NilAccount(), ErrDBUnauthorized
   }
+
+  var err error
+  eid := accountReq.EntityID
+  if eid == domain.NilEntity() {
+    if accountReq.EntityName == "" {
+      logError(
+        "missing entity information: ID or Name are required",
+      )
+      return domain.NilAccount(), ErrDBMissingRequiredFields
+    }
+    eid, err = pg.GetEntityIDByName(ctx, accountReq.EntityName)
+    if err != nil {
+      logError(
+        "entity name does not correlate with any entity in system: %s - %s", 
+        accountReq.EntityName, 
+        err.Error(),
+      )
+      return domain.NilAccount(), ErrDBEntityNotFound
+    }
+  } 
 
   // ->> Check if Entity Exists:
   var exists bool
   if qErr := pg.db.QueryRow(
     ctx,
     `SELECT EXISTS(SELECT 1 FROM entities WHERE id = $1)`,
-    accountReq.EntityID,
+    eid,
   ).Scan(&exists); qErr != nil {
     logError("failed to query entities: %v", qErr)
     return domain.NilAccount(), ErrDBFailedToQuery
@@ -308,7 +331,7 @@ func(pg *PGRepo) CreateAccount(
      )
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     accountID, 
-    account.EntityID,
+    eid,
     account.Email, 
     account.PasswHash,
     account.Role,
@@ -779,11 +802,14 @@ func(pg *PGRepo) CreateRefreshToken(
   return newAccessToken, newRefreshToken, nil
 }
 
-func(pg *PGRepo) Shutdown(){
-  log.Info("Shutting Auth Repo Down...")
+func(pg *PGRepo) Shutdown() error{
   if pg.db == nil {
-    return
-  }
+    log.Warn("tried to shutdown postgres but postgres is already down.")
+    return errors.New("Postgres wasn't running")
+  } 
 
+  log.Info("Shutting Auth Repo Down...")
   pg.db.Close()
+
+  return nil
 }

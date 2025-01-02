@@ -1,26 +1,37 @@
+include .env
+export $(shell sed 's/=.*//' .env)
+
 MKFILE_DIR  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 ##  Postgres Development Commands
-.PHONY: dev_pg_migrate dev_pg_up dev_pg_down dev_pg_remove dev_pg_reset dev_pg
+.PHONY: dev_mgrok dev_pg_migrate dev_docker_up dev_docker_down dev_pg_remove dev_neo_remove dev_pg_reset dev_pg
 
-dev_pg_migrate:## dev_pg_migrate :: calles go run cmd/migrate/main.go up for initializing our base auth migrations. This will be removed in the future.
-	@go run cmd/migrate/main.go up
+dev_mgrok:       ## dev_mgrok       :: Starts up our mgrok server -- allowing us to test our development application online
+	@ngrok http --url=on-shad-capable.ngrok-free.app 8080
 
-
-dev_pg_up:     ## dev_pg_up      :: Runs docker-compose up -d -- Creating a Postgres Docker Image.
+dev_docker_up:   ## dev_docker_up   :: Runs docker-compose up -d -- Creating a Postgres Docker Image.
 	@docker-compose up -d
 
-dev_pg_down:   ## dev_pg_down    :: Runs docker-compose down -- Stopping our Postgres Docker Image.
+dev_docker_down: ## dev_docker_down :: Runs docker-compose down -- Stopping our Postgres Docker Image.
 	@docker-compose down
 
-dev_pg_remove: ## dev_pg_remove  :: Removes out Postgres Docker Image
-	@docker volume rm schematix_postgres_data
+dev_pg_migrate:  ## dev_pg_migrate  :: calles go run cmd/migrate/main.go up for initializing our base auth migrations. This will be removed in the future.
+	@go run cmd/migrate/main.go up
 
-dev_pg_reset:  ## dev_pg_reset   :: Shuts down our Postgres Docker image, then removes the image and finally rebuilds and runs our Postgres Image.
-	@$(MAKE) dev_pg_down dev_pg_remove dev_pg_up 
+dev_pg_remove:   ## dev_pg_remove   :: Removes out Postgres Docker Image
+	@docker volume rm fidicus_postgres_data
 
-dev_pg:        ## dev_pg         :: Runs Postgres CLI for Schemataix: arg migrate calls dev_pg_migrate
-	@psql -h localhost -U admin -d schematix_auth
+dev_neo_remove:  ## dev_neo_remove  :: Removes all Fidicus Neo4J Volumes from docker.
+	@docker volume rm $(docker volume ls -q | grep "fidicus_neo4j")
+
+dev_pg_reset:    ## dev_pg_reset    :: Shuts down our Postgres Docker image, then removes the image and finally rebuilds and runs our Postgres Image.
+	@$(MAKE) dev_docker_down dev_pg_remove dev_docker_up 
+
+dev_pg:          ## dev_pg          :: Runs Postgres CLI for Schemataix: arg migrate calls dev_pg_migrate
+	@psql -h localhost -U admin -d fidicus_auth
+
+dev_neo4j:
+	@docker exec -it fidicus-neo4j bin/cypher-shell -u ${NEO4J_USER} -p ${NEO4J_PASSWORD}
 
 help:
 	@echo "Available Commands:"

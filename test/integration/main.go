@@ -26,8 +26,8 @@ import (
 )
 
 type SignupReq struct {
-  Entity domain.EntitySignupReq
-  Account domain.AccountSignupReq
+  Entity domain.EntitySignupReq   `json:"entity"`
+  Account domain.AccountSignupReq `json:"account"`
 }
 
 var (
@@ -360,7 +360,7 @@ func AuthEntityAdminSignup(
 
   req, err := http.NewRequest(
     "POST",
-    "/api/auth/signup_entity",
+    "/auth/signup_entity",
     bytes.NewBuffer(body),
   )
   if err != nil {
@@ -406,7 +406,7 @@ func SubAccountSignup(
   }
   req, err := http.NewRequest(
     "POST",
-    "/api/pauth/signup_account",
+    "/pauth/signup_account",
     bytes.NewBuffer(body),
   )
   req.Header.Set("Authorization", "Bearer "+atoken.SignedToken)
@@ -447,7 +447,7 @@ func AccountSignin(
 
   req, err := http.NewRequest(
     "POST",
-    "/api/auth/signin",
+    "/auth/signin",
     bytes.NewBuffer(body),
   )
   if err != nil {
@@ -483,7 +483,7 @@ func DropEntity(
 
   req, err := http.NewRequest(
     "POST", 
-    "/api/pauth/remove_entity",
+    "/pauth/remove_entity",
     nil,
   )
   if err != nil {
@@ -512,7 +512,7 @@ func DropAccount(
 
   req, err := http.NewRequest(
     "POST",
-    "/api/pauth/remove_account",
+    "/pauth/remove_account",
     nil,
   )
   if err != nil {
@@ -550,7 +550,7 @@ func RefreshTokens(
 
   req, err := http.NewRequest(
     "POST",
-    "/api/auth/refresh",
+    "/auth/refresh",
     bytes.NewBuffer(body),
   )
   if err != nil {
@@ -585,7 +585,7 @@ func AccountSignout(
 
   req, err := http.NewRequest(
     "POST",
-    "/api/pauth/signout",
+    "/pauth/signout",
     nil,
   )
   if err != nil {

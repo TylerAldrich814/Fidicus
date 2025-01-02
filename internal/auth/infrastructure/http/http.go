@@ -13,8 +13,11 @@ import (
 	"github.com/TylerAldrich814/Fidicus/internal/auth/application"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http/middleware"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/oauth"
 	repo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/utils"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type AuthHTTPHandler struct {
@@ -32,7 +35,7 @@ func NewHttpHandler(
   // mux.Handle("/", http.FileServer(http.Dir("public")))
 
 func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
-  public := r.PathPrefix("/api/auth").Subrouter()
+  public := r.PathPrefix("/auth").Subrouter()
   public.HandleFunc(
     "/signup_entity",
     a.SignupEntity,
@@ -48,7 +51,7 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
     a.UpdateRefreshToken,
   ).Methods("POST")
 
-  protected := r.PathPrefix("/api/pauth").Subrouter()
+  protected := r.PathPrefix("/pauth").Subrouter()
   protected.Use(middleware.AuthMiddleware)
 
   protected.Handle(
@@ -79,6 +82,11 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
     "/signout",
     a.Signout,
   ).Methods("POST")
+
+  protected.HandleFunc(
+    "/github",
+    a.GithubWebhook,
+  ).Methods("PORT")
 
   return nil
 }
@@ -145,12 +153,25 @@ func(a *AuthHTTPHandler) SignupSubAccount(w http.ResponseWriter, r *http.Request
     return
   }
 
-  if account.EntityID == domain.NilEntity() ||
-     account.Email    == ""                 ||
+  if account.EntityID == domain.NilEntity() && account.EntityName == "" {
+    http.Error(w, "entity data missing. Need either Entity ID or Name", http.StatusBadRequest)
+    return 
+  }
+
+  log.WithFields(log.Fields{
+    "entity_id"   : account.EntityID,
+    "entity_name" : account.EntityName,
+    "email"       : account.Email,
+    "passw"       : account.Passw,
+    "first_name"  : account.FirstName,
+    "last_name"   : account.LastName,
+  }).Info("Unmarshaled json Body")
+
+  if account.Email    == "" ||
      account.Passw    == "" {
-       http.Error(w, "<json error>missing required fields", http.StatusBadRequest)
+       http.Error(w, "<json error>Email and/or password missing", http.StatusBadRequest)
        return
-     }
+  }
 
   aid, err := a.service.CreateSubAccount(
     r.Context(),
@@ -338,7 +359,13 @@ func(a *AuthHTTPHandler) Signout(w http.ResponseWriter, r *http.Request) {
   w.WriteHeader(http.StatusOK)
 }
 
-// Shutdown - Allows for graceful shutdown 
-func(a *AuthHTTPHandler) Shutdown(){
-  a.service.Shutdown()
+// GithubWebhook - 
+func(a *AuthHTTPHandler) GithubWebhook(w http.ResponseWriter, r *http.Request){
+  oauth.GithubWebhookHandler(w, r)
 }
+
+// Shutdown - Allows for graceful shutdown 
+func(a *AuthHTTPHandler) Shutdown() error {
+  return a.service.Shutdown()
+}
+

@@ -1,4 +1,4 @@
-# 001-pre-architecture-descisions-for-schematix
+# 001-pre-architecture-descisions-for-fidicus
 
 ## **Status**:
 Accepted

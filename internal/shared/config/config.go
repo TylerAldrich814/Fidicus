@@ -36,7 +36,7 @@ func GetDBConfig() DBConfig {
     Port    : GetEnv("DB_PORT",    "5432"),
     User    : GetEnv("DB_USER",    "admin"),
     Passw   : GetEnv("DB_PASSW",   "AdminPassword"),
-    DBName  : GetEnv("DB_NAME",    "schematix_auth"),
+    DBName  : GetEnv("DB_NAME",    "fidicus_auth"),
     SSLMode : GetEnv("DB_SSLMODE", "disable"),
   }
 }

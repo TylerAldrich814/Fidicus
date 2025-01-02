@@ -1,8 +1,7 @@
-version: "3.9"
 services:
   postgres:
     image: postgres:15
-    container_name: schematix-db
+    container_name: fidicus-db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -13,5 +12,27 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  neo4j:
+    image: neo4j:5.26.0
+    container_name: fidicus-neo4j
+    restart: always
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+    ports:
+      - "7474:7474"  ## HTTP Access
+      - "7687:7687"  ## Bolt protocol for Drivers
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_conf:/var/lib/neo4j/conf
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http:localhost:7474"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 volumes:
   postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_conf:

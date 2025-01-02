@@ -36,5 +36,5 @@ type AuthRepository interface {
   CreateRefreshToken(context.Context, EntityID, AccountID, Role)( Token, Token, error )
 
   // Shutdown - Allows for graceful shutdown operations.
-  Shutdown()
+  Shutdown() error
 }

@@ -16,11 +16,11 @@ func NewService(
 }
 
 // Shutdown - Allows for graceful shutdown operations.
-func(s *Service) Shutdown(){
+func(s *Service) Shutdown() error{
   if s.repo == nil {
-    return 
+    return nil
   }
-  s.repo.Shutdown()
+  return s.repo.Shutdown()
 }
 
 // CreateEntity - First attempts to create An Entity Account If Successful,

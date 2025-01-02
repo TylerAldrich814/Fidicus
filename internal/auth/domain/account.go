@@ -59,7 +59,8 @@ type Account struct {
 
 // AccountSignupReq - Defines the expected data structure for when new requesting Account owner makes a Signup Request.
 type AccountSignupReq struct {
-  EntityID        EntityID `json:"entity_id"`
+  EntityID        EntityID `json:"entity_id,omitempty"`
+  EntityName      string   `json:"entity_name,omitempty"`
   Email           string   `json:"email"`
   Passw           string   `json:"password"`
   Role            Role     `json:"role"`
