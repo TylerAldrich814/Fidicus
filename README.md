@@ -100,7 +100,7 @@ We welcome contributions! Please check our [CONTRIBUTING.md](CONTRIBUTING.md) fo
 ---
 
 ## License
-This project is licensed under the [EULA License](LICENSE).
+This project is licensed under the [EULA License](LICENSE.md).
 
 ---
 
