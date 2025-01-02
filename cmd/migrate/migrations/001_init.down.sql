@@ -1,3 +1,7 @@
 -- 001_init.down.sql
-DROP TABLE IF EXISTS user;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS entities;
+DROP TABLE IF EXISTS schemas;
+DROP TABLE IF EXISTS tokens;
+DROP TABLE IF EXISTS permissions;
 DROP TYPE IF EXISTS role;

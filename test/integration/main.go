@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/signal"
+	"time"
 
 	"math/rand/v2"
 
@@ -52,7 +53,7 @@ func main(){
   r := mux.NewRouter()
 
   log.Warn("        ------  Test Setup  ------        ")
-  _, err := StartAuthService(ctx, authURI, r)
+  authHTTP, err := StartAuthService(ctx, authURI, r)
   if err != nil {
     log.WithFields(log.Fields{
       "auth_uri": authURI,
@@ -65,7 +66,14 @@ func main(){
   }).Info(Suc+"created auth http server")
 
   log.Warn("        ------  Entity&Admin Tests  ------        ")
-  // defer authHttp.Shutdown()
+
+  defer func(){
+    if authHTTP == nil {
+      log.Warn("authHTTP is nil")
+    } else {
+      authHTTP.Shutdown()
+    }
+  }()
   pad := rand.IntN(100000)
 
   entityName := fmt.Sprintf("Entity_%d", pad)
@@ -127,6 +135,9 @@ func main(){
     "r_exp": refresh.Expiration,
   }).Info(Suc+"successfully signed in")
 
+  // Needed -- otherwise refreshed tokens are equal.. Maybe I should add a random number to help change final hash..?
+  time.Sleep(time.Second)
+
   log.Warn("        ------  Token Refresh Test  ------        ")
   // ->> Test Refreshing Tokens:
   r_access, r_refresh, err := RefreshTokens(
@@ -164,7 +175,7 @@ func main(){
     ctx, 
     r, 
     subAccountReq,
-    r_access.SignedToken,
+    r_access,
   )
   var subAccess domain.Token
 
@@ -205,7 +216,7 @@ func main(){
     shouldFail := DropEntity(
       ctx,
       r,
-      subAccess.SignedToken,
+      subAccess,
     )
     if shouldFail == nil {
       log.Panic(Pan+"a sub account shouldn't be able to remove an entity")
@@ -227,21 +238,47 @@ func main(){
       ctx,
       r,
       subsubAccountReq,
-      subAccess.SignedToken,
+      subAccess,
     )
     if signupShouldFail == nil {
       log.Panic(Pan+"AccessRoleAccount shouldn't be able to create an account")
     } else {
       log.Info(Suc+"successfully blocked AccessRoleAccount from making another account.")
     }
+
+    if err := AccountSignout(ctx, r, subAccess); err != nil {
+      log.Panic(Pan+"failed to signout subaccount.")
+    } else {
+      log.Info(Suc+"successfully signed out subaccount.")
+    }
   }
+
+  log.Warn("        ------  Signout Admin Account  ------        ")
+  if shouldFail := AccountSignout(ctx, r, access); err != nil {
+    log.Panic(Pan+"signed out account with invalid access token: " + shouldFail.Error())
+  } else {
+    log.Info(Suc+"failed to singout account with invalid access token:")
+  }
+
+  if err := AccountSignout(ctx, r, r_access); err != nil {
+    log.Panic("failed to signout account with valid token: " + err.Error())
+  }
+
+  // Sign back in 
+  r_access, r_refresh, err = AccountSignin(ctx, r, signinReq)
+  if err != nil {
+    log.Panic(Pan+"failed to sign admin account back in.. " + err.Error())
+  } else {
+    log.Info(Suc+"successfully signed admin account back in")
+  }
+
   // ---------- Test Clean up Functions ---------- 
   log.Warn("        ------  Cleanup Tests  ------        ")
   //       ->> Drop Entity & AdminAccount <<-
   if err := DropEntity(
     ctx,
     r,
-    r_access.SignedToken,
+    r_access,
   ); err != nil {
     log.WithFields(log.Fields{
       "error": err.Error(),
@@ -306,7 +343,7 @@ func StartAuthService(
     return nil, errors.New("Failed to initalize Auth HTTP Routes: " + err.Error())
   }
 
-  return nil, nil
+  return authHTTPHandler, nil
 }
 
 func AuthEntityAdminSignup(
@@ -357,7 +394,7 @@ func SubAccountSignup(
   ctx       context.Context,
   r         *mux.Router,
   signupReq domain.AccountSignupReq,
-  atoken    string,
+  atoken    domain.Token,
 )( domain.AccountID, error ){
   var throwError = func(f string, args ...any)(domain.AccountID, error){
     return domain.NilAccount(), fmt.Errorf("SubAccountSignup: " + f, args...)
@@ -372,7 +409,7 @@ func SubAccountSignup(
     "/api/pauth/signup_account",
     bytes.NewBuffer(body),
   )
-  req.Header.Set("Authorization", "Bearer "+atoken)
+  req.Header.Set("Authorization", "Bearer "+atoken.SignedToken)
 
   rr := httptest.NewRecorder()
   r.ServeHTTP(rr, req)
@@ -438,7 +475,7 @@ func AccountSignin(
 func DropEntity(
   ctx     context.Context,
   r       *mux.Router,
-  atoken  string,
+  atoken  domain.Token,
 ) error {
   var throwError = func(f string, args ...any) error {
     return fmt.Errorf("DropEntity: " + f, args...)
@@ -452,8 +489,8 @@ func DropEntity(
   if err != nil {
     return throwError("Failed to create Request: " + err.Error())
   }
-  req.Header.Set("Authorization", "Bearer "+atoken)
 
+  req.Header.Set("Authorization", "Bearer "+atoken.SignedToken)
   rr := httptest.NewRecorder()
   r.ServeHTTP(rr, req)
 
@@ -535,4 +572,33 @@ func RefreshTokens(
   }
 
   return newTokens.AccessToken, newTokens.RefreshToken, nil
+}
+
+func AccountSignout(
+  ctx     context.Context,
+  r       *mux.Router,
+  access  domain.Token,
+) error {
+  var throwError = func(f string, args ...any) error {
+    return fmt.Errorf("AccountSignout: " + f, args...)
+  }
+
+  req, err := http.NewRequest(
+    "POST",
+    "/api/pauth/signout",
+    nil,
+  )
+  if err != nil {
+    return throwError("failed to create request: %s", err.Error())
+  }
+
+  req.Header.Set("Authorization", "Bearer "+access.SignedToken)
+  rr := httptest.NewRecorder()
+  r.ServeHTTP(rr, req)
+
+  if rr.Code != http.StatusOK {
+    return throwError("http status non-ok: %s", rr.Code)
+  }
+
+  return nil
 }

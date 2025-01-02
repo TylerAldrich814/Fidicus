@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-
 	"github.com/TylerAldrich814/Schematix/internal/auth/domain"
 )
 
@@ -18,6 +17,9 @@ func NewService(
 
 // Shutdown - Allows for graceful shutdown operations.
 func(s *Service) Shutdown(){
+  if s.repo == nil {
+    return 
+  }
   s.repo.Shutdown()
 }
 
@@ -71,6 +73,33 @@ func(s *Service) AccountSignin(
   }
 
   return access, refresh, nil
+}
+
+// AccountSignout - Communicates to our Repository to perform an AccountSignout event.
+// Which removes the user's Refresh Token from our Database.
+func(s *Service) AccountSignout(
+  ctx       context.Context,
+  accountID domain.AccountID,
+) error {
+  if err := s.repo.AccountSignout(ctx, accountID); err != nil {
+    return err
+  }
+  
+  return nil
+}
+
+func(s *Service) CreateRefreshToken(
+  ctx       context.Context,
+  entityID  domain.EntityID,
+  accountID domain.AccountID,
+  role      domain.Role,
+)( domain.Token, domain.Token, error ){
+  return s.repo.CreateRefreshToken(
+    ctx,
+    entityID,
+    accountID,
+    role,
+  )
 }
 
 // StoreRefreshToken - A Communication channel between AuthHTTPHandler and AuthRepository.

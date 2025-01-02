@@ -24,14 +24,16 @@ type AuthRepository interface {
   GetAccountIDByEmail(context.Context, string)( AccountID, error )
   // AccountSignin - Attempts a Account Sign in event: returns AccessToken, RefreshToken, err
   AccountSignin(context.Context, AccountSigninReq)( Token, Token, error)
+  // AccountSignout - Signs the user out of Shematix; removing their Access Token from the DB.
+  AccountSignout(context.Context, AccountID) error
   // RefreshToken - Refreshes an account's JWT Tokens.
   StoreRefreshToken(ctx context.Context, acc_id AccountID, token Token) error
   // ValidateRefreshToken - Validates an Refresh Token by querying 'tokens' and detecting if expired.
   ValidateRefreshToken(ctx context.Context, acc_id AccountID, token string) error
-  // RefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
+  // CreateRefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
   // RefreshToken is wrapped with this AuthRepository function in order to verify that the caller is 
   // a valid account holder.
-  RefreshToken(ctx context.Context, accountID AccountID)( Token, error )
+  CreateRefreshToken(context.Context, EntityID, AccountID, Role)( Token, Token, error )
 
   // Shutdown - Allows for graceful shutdown operations.
   Shutdown()

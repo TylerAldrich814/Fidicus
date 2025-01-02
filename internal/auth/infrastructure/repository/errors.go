@@ -25,6 +25,7 @@ var (
 
   ErrDBFailedToDeleteEntity  = errors.New("failed to delete entity")
   ErrDBFailedToDeleteAccount = errors.New("failed to delete entity accounts")
+  ErrDBFailedToDeleteToken   = errors.New("failed to delete user access token")
 
   ErrDBMissingRequiredFields = errors.New("DB Request missing required fields")
 )

@@ -347,10 +347,10 @@ func(pg *PGRepo) RemoveEntityByID(
   ctx context.Context, 
   id domain.EntityID,
 ) error {
-  var logError = func(e string) {
+  var logError = func(f string, args ...any) {
     log.WithFields(log.Fields{
       "id": id,
-    }).Error("RemoveEntityByID: " + e)
+    }).Error(fmt.Sprintf("RemoveEntityByID: "+f, args...))
   }
 
   // Begin TX
@@ -619,6 +619,42 @@ func(pg *PGRepo) AccountSignin(
   return newAccessToken, newRefreshToken, nil
 }
 
+// AccountSignout - Signs the account out of Schematix. Removing their refresh token from  
+// our tokens DB. By the time this function is called. The user should have already been
+// validated via their provided access token.
+func(pg *PGRepo) AccountSignout(
+  ctx       context.Context,
+  accountID domain.AccountID,
+) error {
+  var logError = func(f string, args ...any) {
+    log.WithFields(log.Fields{
+      "account_id": accountID,
+    }).Error(fmt.Sprintf("AccountSignout: "+f, args...))
+  }
+
+  tx, err := pg.db.Begin(ctx)
+  if err != nil {
+    logError("failed to begin DB transaction: %s", err.Error())
+    return ErrDBFailedToBeginTX
+  }
+
+  if _, err := tx.Exec(
+    ctx,
+    `DELETE FROM tokens WHERE account_id = $1`,
+    accountID,
+  ); err != nil {
+    logError("failed to remove user access token from tokens table: %s", err.Error())
+    return ErrDBFailedToDeleteToken
+  }
+
+  if err := tx.Commit(ctx); err != nil {
+    logError("failed to commit DB transaction: %s", err.Error())
+    return ErrDBFailedToCommitTX
+  }
+
+  return nil
+}
+
 // StoreRefreshToken - Tokes a newly created Refresh Token and Upserts it into the tokens DB table.
 //
 // Potential Errors:
@@ -658,19 +694,6 @@ func(pg *PGRepo) StoreRefreshToken(
     logError("failed to upsert refresh token: " + err.Error())
     return ErrDBFailedToInsert
   }
-  // if _, err := tx.Exec(
-  //   ctx,
-  //   `INSERT INTO tokens (account_id, refresh_token, expires_at, updated_at)
-  //    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-  //    ON CONFLICT (refresh_token) DO UPDATE
-  //    SET expires_at = EXCLUDED.expires_at, updated_at = CURRENT_TIMESTAMP`,
-  //    accountID,
-  //    token.SignedToken,
-  //    token.Expiration,
-  // ); err != nil {
-  //   logError("failed to upsert refresh token: " + err.Error())
-  //   return ErrDBFailedToInsert
-  // }
 
   // Attempt to commit DB Transaction:
   if err := tx.Commit(ctx); err != nil {
@@ -726,16 +749,41 @@ func( pg *PGRepo) ValidateRefreshToken(
 }
 
 // RefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
-func(pg *PGRepo) RefreshToken(
+func(pg *PGRepo) CreateRefreshToken(
   ctx       context.Context, 
+  entityID  domain.EntityID,
   accountID domain.AccountID,
-)( domain.Token, error ){
+  role      domain.Role,
+)( domain.Token, domain.Token, error ){
 
-  return domain.Token{}, nil
+  var throwError = func(err error)(domain.Token, domain.Token, error){
+    return domain.Token{}, domain.Token{}, err
+  }
+
+  // ->> Generate new JWT Tokens.
+  newAccessToken, err := domain.GenerateAccessToken(accountID, entityID, role)
+  if err != nil {
+    return throwError(err)
+  }
+
+  newRefreshToken, err := domain.GenerateRefreshToken(accountID, entityID, role)
+  if err != nil {
+    return throwError(err)
+  }
+
+  // ->> Store new Refresh Token
+  if err := pg.StoreRefreshToken(ctx, accountID, newRefreshToken); err != nil {
+    return throwError(err)
+  }
+
+  return newAccessToken, newRefreshToken, nil
 }
 
 func(pg *PGRepo) Shutdown(){
   log.Info("Shutting Auth Repo Down...")
+  if pg.db == nil {
+    return
+  }
 
   pg.db.Close()
 }
