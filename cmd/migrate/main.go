@@ -40,7 +40,7 @@ func main(){
 
   // Create Migration Instance
   m, err := migrate.NewWithDatabaseInstance(
-    "file://cmd/migrate/migrations",
+    "file://cmd/migrate/migrations/postgres",
     "postgres",
     driver,
   )

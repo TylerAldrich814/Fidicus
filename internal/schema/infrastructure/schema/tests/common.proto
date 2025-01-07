@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package entity.common.v1alpha;
+
+message Address {
+  string street = 1;
+  string city   = 2;
+}

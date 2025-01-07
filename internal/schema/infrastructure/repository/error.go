@@ -9,5 +9,5 @@ var (
   ErrBlobDBInternal             BlobErr = errors.New("an internal error occurred")
   ErrBlobDBMinioInit            BlobErr = errors.New("failed to initialize minio client")
   ErrBlobDBFailedToCreateBucket BlobErr = errors.New("failed to create bucket")
-  ErrBlobDBUploadFailed         BlobErr = errors.New("failed to upload new file into Blob Storage")
+  ErrBlobDBUploadFailed         BlobErr = errors.New("failed to upload new file into blob storage")
 )

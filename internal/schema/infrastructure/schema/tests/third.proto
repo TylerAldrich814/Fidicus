@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package entity.third.v1alpha;
+
+import "common.proto";
+import "user.proto";
+import "other.proto";
+
+message Combined {
+  entity.user.v1alpha.User user = 1;
+  entity.common.v1alpha.Address address = 2;
+  entity.other.v1alpha.ThirdDegree third = 3;
+}

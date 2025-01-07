@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package entity.user.v1alpha;
+
+import "common.proto";
+
+enum Rank {
+  option allow_alias = true;
+  UNKNOWN = 0;
+  FIRST = 1;
+  One = 1;
+  SECOND = 1;
+  THIRD = 1;
+}
+
+message User {
+  string id   = 1;
+  string name = 2;
+  int32 age   = 3;
+  entity.common.v1alpha.Address address = 4;
+}
+
+message Player {
+  optional string name = 1;
+  repeated int32 scores = 2;
+  Rank rank = 3;
+  map<string, string> metadata = 4;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+service UserService {
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+}
