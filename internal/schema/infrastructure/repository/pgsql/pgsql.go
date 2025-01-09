@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
   "github.com/TylerAldrich814/Fidicus/internal/shared/utils"
-	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
 	repo "github.com/TylerAldrich814/Fidicus/internal/schema/infrastructure/repository"
 )
 

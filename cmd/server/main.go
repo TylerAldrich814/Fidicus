@@ -35,7 +35,11 @@ func main(){
   // <TODO> Tracker: jaegar
 
   // ->> Auth Repository Initialization:
-  dbConfig := config.GetPGSQLConfig()
+  dbConfig, err := config.GetPgsqlConfig("-auth")
+  if err != nil {
+    log.Panic(err)
+  }
+
   dsn := dbConfig.GetPostgresURI()
 
   authRepo, err := AuthRepo.NewAuthRepo(

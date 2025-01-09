@@ -1,4 +1,4 @@
-package domain
+package jwt
 
 import (
 	"context"
@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
-	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/users"
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 )
@@ -39,16 +40,16 @@ type AuthToken struct {
 
 // AuthClaims - Defines our custom JWT Token Claims to be added into each Token.
 type AuthClaims struct {
-  EntityID  EntityID `json:"entity_id"`
-  AccountID AccountID `json:"account_id"`
+  EntityID  users.EntityID `json:"entity_id"`
+  AccountID users.AccountID `json:"account_id"`
   Role      role.Role      `json:"role"`
   jwt.RegisteredClaims
 }
 
 // generateToken creates a single JWT Token with a custom expiration time.
 func generateToken(
-  accountID AccountID,
-  entityID  EntityID,
+  accountID users.AccountID,
+  entityID  users.EntityID,
   role      role.Role,
   exp       time.Duration,
 )( Token, error ){
@@ -92,8 +93,8 @@ func RefreshToken(
 // GenerateRefreshToken - Creates a JWT Access Token with AuthClaims attached.
 //   Expiration is set to 'accessTokenExpiration'
 func GenerateAccessToken(
-  accountID AccountID,
-  entityID  EntityID,
+  accountID users.AccountID,
+  entityID  users.EntityID,
   role      role.Role,
 )( Token, error ){
   accessToken, err := generateToken(
@@ -116,8 +117,8 @@ func GenerateAccessToken(
 // GenerateRefreshToken - Creates a JWT Refresh Token with AuthClaims attached
 //   Expiration is set to 'refreshTokenExpiration'
 func GenerateRefreshToken(
-  accountID  AccountID,
-  entityID   EntityID,
+  accountID  users.AccountID,
+  entityID   users.EntityID,
   role       role.Role,
 )( Token, error ){
   refreshToken, err := generateToken(
@@ -142,8 +143,8 @@ func GenerateRefreshToken(
 //   - Access Token will have an exiration of 1 hour
 //   - Refresh Token will have an expiration of 7 days.
 func GenerateJWTTokens(
-  accountID AccountID,
-  entityID  EntityID,
+  accountID users.AccountID,
+  entityID  users.EntityID,
   role      role.Role,
 )( *AuthToken, error ){
   accessToken, err := GenerateAccessToken(

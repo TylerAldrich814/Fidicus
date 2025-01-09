@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"net/http"
-	auth "github.com/TylerAldrich814/Fidicus/internal/auth/domain"
-	"github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/jwt"
 )
 
 // RoleAuthMiddleware -- 2nd degree middleware under AuthMiddleware:
@@ -12,13 +12,13 @@ import (
 //  If Context.Claims.Role is smaller than the provided Role, we return an
 //  http Error of StatusUnauthorized. Else if Context.Claims.Role is equal
 //  or greater than the provided Role, we then continue with the Request.
-func RoleAuthMiddleware(next http.Handler, role domain.Role) http.Handler {
+func RoleAuthMiddleware(next http.Handler, role role.Role) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     if next == nil {
       http.Error(w, "internal server error: no handler", http.StatusInternalServerError)
       return
     }
-    claims, ok := r.Context().Value(ClaimsKey).(*auth.AuthClaims)
+    claims, ok := r.Context().Value(ClaimsKey).(*jwt.AuthClaims)
     if !ok {
       http.Error(w, "missing auth claims", http.StatusUnauthorized)
       return

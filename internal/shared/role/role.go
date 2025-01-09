@@ -1,4 +1,4 @@
-package domain
+package role
 
 // Role defines a accounts access level within an Entity's Account Environment.
 //

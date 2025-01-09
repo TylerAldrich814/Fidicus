@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
 )
 
 // SchemaRepository defines our Schema's Storage Logic.

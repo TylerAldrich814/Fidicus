@@ -1,4 +1,4 @@
-package domain
+package users
 
 import (
 	"fmt"
@@ -6,9 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
 )
 
+// AccountID defines the ID for an Entity's Subaccount
 type AccountID uuid.UUID
 
 // Returns a Nil AccountID

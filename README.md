@@ -1,34 +1,34 @@
 # Fidicus
 
 ## Overview
-**Fidicus** is a centralized **Schema Registry and Validation Platform** designed to streamline schema management in **distributed microservice architectures**. It ensures consistency, reliability, and backward compatibility for APIs and service contracts across teams and environments.
+NOTE: This is currently a personal project for learning and exploring a variety of backend technologies and architectures.
+
+**Fidicus** is a centralized **Schema Registry and Validation Platform** designed to streamline schema management in **distributed microservice architectures**.
+Ensuring consistency, reliability, and backward compatibility for APIs and service contracts across teams and environments.
 
 Built for **medium to large-scale microservices**, Fidicus solves the complex challenges of schema versioning, dependency tracking, and validation by providing a **unified repository** and robust **CI/CD integrations**.
 
 ---
 
 ## Key Features
-
 - **Centralized Schema Registry**  
-  Store and manage schemas for multiple services in one secure location. Supports OpenAPI, GraphQL, and Protobuf formats.
-
+    Store and manage schemas for multiple services in one secure location.
+    With plans to support the following formats:
+      - [x] Protobuf
+      - [ ] OpenAPI
+      - [ ] GraphQL
+- ** Automated Validation and Dependency Tracking:
+    Fidicus pulls and parses schema files, creating Neo4j cypher queries 
+    for keeping track of your API endpoints syntactical structure and the
+    inner-relationships between API endpoints.
+      - [x] Protobuf
+      - [ ] OpenAPI
+      - [ ] GraphQL
+- ** CI/CD Pipeline Integrations:
+     Integrating directly into Github Actions, Gitlab CI and other CI/CD platforms to let users add an aditional 
+     level of testing to help find any potential breaking changes. 
 - **Version Control & History**  
   Track schema changes with versioning, providing visibility into modifications and ensuring traceability.
-
-- **Automated Validation & Compatibility Checks**  
-  Identify breaking changes in schema updates, preventing runtime errors and deployment failures.
-
-- **Dependency Mapping & Consumer Tracking**  
-  Map dependencies between services to evaluate the impact of schema updates on consumers.
-
-- **CI/CD Pipeline Integration**  
-  Integrate directly into GitHub Actions, GitLab CI, and other CI/CD pipelines to enforce schema validation during build and deployment stages.
-
-- **OAuth2 Authentication & RBAC**  
-  Secure access control with Role-Based Access Control (RBAC) and OAuth2 support for GitHub/GitLab integrations.
-
-- **Graph-Based Relationships**  
-  Leverage graph databases to map and analyze schema dependencies and relationships between API components.
 
 ---
 
@@ -51,60 +51,36 @@ Microservices need structured governance around data definitions and changes. Fi
 
 ---
 
-## Target Audience
-Fidicus is built for:
-- **DevOps Engineers** automating schema validation within CI/CD pipelines.
-- **API Developers** managing and versioning schemas across services.
-- **Product Teams** ensuring API stability for internal and external consumers.
-- **Enterprise Architects** maintaining compliance and governance in distributed systems.
-
----
-
 ## Development Quick Start
 
 1. **Clone the Repository**
 ```bash
-git clone https://github.com/your-org/fidicus.git
+git clone https://github.com/TylerAldrich814/fidicus.git
 ```
 
 2. **Run the Application**
 ```bash
-docker-compose up
+docker-compose up -d
 ```
-
-3. **Access the Dashboard**  
-Navigate to: `http://localhost:3000`
-
-4. **API Integration Example**
-```bash
-curl -X POST http://localhost:8080/api/v1/schemas \
--H "Authorization: Bearer <TOKEN>" \
--H "Content-Type: application/json" \
--d @schema.json
-```
-
 ---
 
 ## Roadmap
-- **Multi-Format Support**: Add Avro and JSON Schema compatibility.
-- **Consumer Contracts**: Enable tracking of downstream consumers and their schema dependencies.
-- **Custom Rules & Validations**: Allow configurable validation rules for specific use cases.
-- **Plugin System**: Introduce custom extensions and plugins for specialized workflows.
-- **Advanced Analytics**: Provide insights into schema usage and API performance.
+### Authentication:
+- [x] Postgres Auth Database for User Creation using RBAC.
+- [x] RBAC Architecture: Currently supports the following users:
+   - RoleEntity
+   - RoleAdmin
+   - RoleAccount
+   - RoleReadOnly
+- [x] JWT Integration: Creation, Validation and refrehing tokens.
+- [X] HTTP middleware for JWT Protected Endpoints and for RBAC Protected Endpoints.
 
----
-
-## Contributing
-We welcome contributions! Please check our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-## License
-This project is licensed under the [EULA License](LICENSE.md).
-
----
-
-## Contact
-For inquiries, please contact: **support@fidicus.io**
+### Schema:
+- [] Schema Cypher Compiler:
+   - [X] Proto File Support
+   - [] GraphQL File Support
+   - [] OpenAPI file Support
+- [] S3 RBAC Validation and Storage
+- [] Schema HTTP endpoints: 
 
 

@@ -2,8 +2,11 @@ package application
 
 import (
 	"context"
+
 	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
-	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/jwt"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/users"
 )
 
 type Service struct {
@@ -30,9 +33,9 @@ func(s *Service) Shutdown() error{
 // we return the EntityID and AccountID
 func(s *Service) CreateEntity(
   ctx     context.Context,
-  entity  domain.EntitySignupReq,
-  account domain.AccountSignupReq,
-)( domain.EntityID, domain.AccountID, error ){
+  entity  users.EntitySignupReq,
+  account users.AccountSignupReq,
+)( users.EntityID, users.AccountID, error ){
   return s.repo.CreateEntity(ctx, entity, account)
 }
 
@@ -41,7 +44,7 @@ func(s *Service) CreateEntity(
 // all of Entity's SubAccunts from accessing Fidicus.
 func(s *Service) RemoveEntity(
   ctx      context.Context,
-  entityID domain.EntityID,
+  entityID users.EntityID,
 ) error {
   return s.repo.RemoveEntityByID(ctx, entityID)
 }
@@ -49,8 +52,8 @@ func(s *Service) RemoveEntity(
 // CreateSubAccount attempts to create a Sub Account under a specified Entity.
 func(s *Service) CreateSubAccount(
   ctx      context.Context,
-  account  domain.AccountSignupReq,
-)( domain.AccountID, error) {
+  account  users.AccountSignupReq,
+)( users.AccountID, error) {
   return s.repo.CreateAccount(ctx, account)
 }
 
@@ -58,19 +61,19 @@ func(s *Service) CreateSubAccount(
 // wipes Account from our DB.In the future, this will only disable account without removing all data.
 func(s *Service) RemoveSubAccount(
   ctx       context.Context,
-  accountID domain.AccountID,
+  accountID users.AccountID,
 ) error {
   return s.repo.RemoveAccountByID(ctx, accountID)
 }
 
 func(s *Service) AccountSignin(
   ctx       context.Context,
-  signInReq domain.AccountSigninReq,
-)( domain.Token, domain.Token, error ) {
+  signInReq users.AccountSigninReq,
+)( jwt.Token, jwt.Token, error ) {
   // Call repo, attemp account signin. Returns AuthToken 
   access, refresh, err := s.repo.AccountSignin(ctx, signInReq)
   if err != nil {
-    return domain.Token{}, domain.Token{}, err
+    return jwt.Token{}, jwt.Token{}, err
   }
 
   return access, refresh, nil
@@ -80,7 +83,7 @@ func(s *Service) AccountSignin(
 // Which removes the user's Refresh Token from our Database.
 func(s *Service) AccountSignout(
   ctx       context.Context,
-  accountID domain.AccountID,
+  accountID users.AccountID,
 ) error {
   if err := s.repo.AccountSignout(ctx, accountID); err != nil {
     return err
@@ -91,10 +94,10 @@ func(s *Service) AccountSignout(
 
 func(s *Service) CreateRefreshToken(
   ctx       context.Context,
-  entityID  domain.EntityID,
-  accountID domain.AccountID,
+  entityID  users.EntityID,
+  accountID users.AccountID,
   role      role.Role,
-)( domain.Token, domain.Token, error ){
+)( jwt.Token, jwt.Token, error ){
   return s.repo.CreateRefreshToken(
     ctx,
     entityID,
@@ -109,8 +112,8 @@ func(s *Service) CreateRefreshToken(
 // genreated Refresh Token.
 func(s *Service) StoreRefreshToken(
   ctx       context.Context,
-  accountID domain.AccountID,
-  token     domain.Token,
+  accountID users.AccountID,
+  token     jwt.Token,
 ) error {
   return s.repo.StoreRefreshToken(
     ctx,
@@ -124,10 +127,10 @@ func(s *Service) StoreRefreshToken(
 //
 // Potential Errors:
 //   - ErrDBFailedToQuery
-//   - domain.ErrTokenExpired
+//   - users.ErrTokenExpired
 func(s *Service) ValidateRefreshToken(
   ctx       context.Context,
-  accountID domain.AccountID,
+  accountID users.AccountID,
   token     string,
 ) error {
   if err := s.repo.ValidateRefreshToken(

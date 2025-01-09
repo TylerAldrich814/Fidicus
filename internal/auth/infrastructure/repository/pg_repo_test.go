@@ -7,18 +7,22 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/users"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 	"github.com/stretchr/testify/assert"
 )
-
 
 func setupTestDB(ctx context.Context) domain.AuthRepository {
   // ->> App Config
   config.InitLogger()
 
   // ->> Auth Repository Initialization:
-  dbConfig := config.GetPGSQLConfig()
+  dbConfig, err := config.GetPgsqlConfig("-auth")
+  if err != nil {
+    log.Fatal(err)
+  }
   dsn := dbConfig.GetPostgresURI()
 
   db, err := NewAuthRepo(ctx, dsn)
@@ -35,21 +39,21 @@ func TestEntitySignupAndRemoval(t *testing.T) {
 
   tests := []struct{
     name       string
-    newAccount domain.AccountSignupReq
-    newEntity  domain.EntitySignupReq
+    newAccount users.AccountSignupReq
+    newEntity  users.EntitySignupReq
     wantErr    error
   }{
     {
       name       : "Creates new entity and new user",
-      newAccount : domain.AccountSignupReq{
+      newAccount : users.AccountSignupReq{
         Email           : "some_user@gmail.com",
         Passw           : "some_password",
-        Role            : domain.AccessRoleAdmin,
+        Role            : role.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
         CellphoneNumber : "814-555-0666",
       },
-      newEntity : domain.EntitySignupReq{
+      newEntity : users.EntitySignupReq{
         Name        : "SomeEntity Inc",
         Description : "Some Software Company",
       },
@@ -57,15 +61,15 @@ func TestEntitySignupAndRemoval(t *testing.T) {
     },
     {
       name      : "entity should already exist",
-      newAccount   : domain.AccountSignupReq{
+      newAccount   : users.AccountSignupReq{
         Email           : "some_other_user@gmail.com",
         Passw           : "some_other_other_password",
-        Role            : domain.AccessRoleAdmin,
+        Role            : role.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
         CellphoneNumber : "814-555-0666",
       },
-      newEntity : domain.EntitySignupReq{
+      newEntity : users.EntitySignupReq{
         Name            : "SomeEntity Inc",
         Description     : "Some Software Company",
       },
@@ -113,11 +117,11 @@ func TestCreateAccountAndRemoval(t *testing.T) {
 
   testEID, _, err := db.CreateEntity(
     ctx,
-    domain.EntitySignupReq{
+    users.EntitySignupReq{
       Name        : "SomeEntity",
       Description : "Some Software Company",
     },
-    domain.AccountSignupReq {
+    users.AccountSignupReq {
       Email     : "someAdminEmail@entity.com",
       Passw     : "some_super_secure_password",
       FirstName : "Admin",
@@ -131,16 +135,16 @@ func TestCreateAccountAndRemoval(t *testing.T) {
 
   tests := []struct{
     name       string
-    newAccount domain.AccountSignupReq
+    newAccount users.AccountSignupReq
     wantErr    error
   }{
     {
       name       : "Creates new entity and new user",
-      newAccount : domain.AccountSignupReq{
+      newAccount : users.AccountSignupReq{
         EntityID        : eid,
         Email           : "some_user@gmail.com",
         Passw           : "some_password",
-        Role            : domain.AccessRoleAdmin,
+        Role            : role.AccessRoleAdmin,
         FirstName       : "Timmy",
         LastName        : "D.",
         CellphoneNumber : "814-555-0666",
@@ -149,11 +153,11 @@ func TestCreateAccountAndRemoval(t *testing.T) {
     },
     {
       name       : "entity should already exist",
-      newAccount : domain.AccountSignupReq{
+      newAccount : users.AccountSignupReq{
         EntityID        : eid,
         Email           : "some_user@gmail.com",
         Passw           : "some_other_password",
-        Role            : domain.AccessRoleAdmin,
+        Role            : role.AccessRoleAdmin,
         FirstName       : "T.",
         LastName        : "D.",
         CellphoneNumber : "814-666-0666",
@@ -195,20 +199,20 @@ func TestAccessTokenValidation(t *testing.T){
 
   test := struct{
     name       string
-    newAccount domain.AccountSignupReq
-    newEntity  domain.EntitySignupReq
+    newAccount users.AccountSignupReq
+    newEntity  users.EntitySignupReq
     wantErr    error
   }{
     name       : "Creates new entity and new user",
-    newAccount : domain.AccountSignupReq{
+    newAccount : users.AccountSignupReq{
       Email           : "testing_jwt@gmail.com",
       Passw           : "some_password",
-      Role            : domain.AccessRoleAdmin,
+      Role            : role.AccessRoleAdmin,
       FirstName       : "Timmy",
       LastName        : "D.",
       CellphoneNumber : "814-555-0666",
     },
-    newEntity : domain.EntitySignupReq{
+    newEntity : users.EntitySignupReq{
       Name        : "JWT Token Inc",
       Description : "Some Software Company",
     },
@@ -225,7 +229,7 @@ func TestAccessTokenValidation(t *testing.T){
   }
 
   log.Print(" -->> ACCOUNT SIGN IN")
-  access, refresh, err := db.AccountSignin(ctx, domain.AccountSigninReq{
+  access, refresh, err := db.AccountSignin(ctx, users.AccountSigninReq{
     EntityName : test.newEntity.Name,
     Email      : test.newAccount.Email,
     Passw      : test.newAccount.Passw,

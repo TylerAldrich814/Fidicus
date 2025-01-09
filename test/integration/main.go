@@ -19,16 +19,17 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	AuthService "github.com/TylerAldrich814/Fidicus/internal/auth/application"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 	AuthHTTP "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http"
 	AuthRepo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
-	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/users"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/jwt"
 )
 
 type SignupReq struct {
-  Entity domain.EntitySignupReq   `json:"entity"`
-  Account domain.AccountSignupReq `json:"account"`
+  Entity users.EntitySignupReq   `json:"entity"`
+  Account users.AccountSignupReq `json:"account"`
 }
 
 var (
@@ -81,10 +82,10 @@ func main(){
   entityName := fmt.Sprintf("Entity_%d", pad)
 
   signupReq := SignupReq{
-    Entity: domain.EntitySignupReq{
+    Entity: users.EntitySignupReq{
       Name : entityName,
     },
-    Account: domain.AccountSignupReq{
+    Account: users.AccountSignupReq{
       Email           : fmt.Sprintf("Admin@Entity_%d.com", pad),
       Passw           : "SomeSuperStrongPassword1",
       FirstName       : "Admin",
@@ -112,7 +113,7 @@ func main(){
   }).Info(Suc+"successfully created entity & admin")
 
   // ->> Admin account Sign-in:
-  signinReq := domain.AccountSigninReq{
+  signinReq := users.AccountSigninReq{
     EntityName : signupReq.Entity.Name,
     Email      : signupReq.Account.Email,
     Passw      : signupReq.Account.Passw,
@@ -163,7 +164,7 @@ func main(){
 
   log.Warn("        ------  Sub Account Tests  ------        ")
   // ->> Create SubAccount
-  subAccountReq := domain.AccountSignupReq{
+  subAccountReq := users.AccountSignupReq{
     EntityID        : entityID,
     Email           : fmt.Sprintf("SubAccount@Entity_%d.com", pad),
     Passw           : "SomeExtemely6Secretive6Password6",
@@ -179,7 +180,7 @@ func main(){
     subAccountReq,
     r_access,
   )
-  var subAccess domain.Token
+  var subAccess jwt.Token
 
   if subAccErr != nil {
     log.WithFields(log.Fields{
@@ -191,7 +192,7 @@ func main(){
     }).Info(Suc+"successfully created sub account")
 
     // ->> SubAccount Signin Request Body:
-    subSigninReq := domain.AccountSigninReq{
+    subSigninReq := users.AccountSigninReq{
       EntityName : entityName,
       Email      : subAccountReq.Email,
       Passw      : subAccountReq.Passw,
@@ -227,7 +228,7 @@ func main(){
     }
 
     // -->> Test if Account Creation by AccessRoleAccount is blocked:
-    subsubAccountReq := domain.AccountSignupReq{
+    subsubAccountReq := users.AccountSignupReq{
       EntityID        : entityID,
       Email           : fmt.Sprintf("ShouldNotPass@Entity_%d.com", pad),
       Passw           : "Should6Not9Pass",
@@ -352,11 +353,11 @@ func AuthEntityAdminSignup(
   ctx       context.Context,
   r         *mux.Router,
   signupReq SignupReq,
-)(domain.EntityID, domain.AccountID, error){
+)(users.EntityID, users.AccountID, error){
   body, err := json.Marshal(signupReq)
   if err != nil {
-    return domain.NilEntity(), 
-           domain.NilAccount(), 
+    return users.NilEntity(), 
+           users.NilAccount(), 
            err
   }
 
@@ -367,7 +368,7 @@ func AuthEntityAdminSignup(
   )
   if err != nil {
     log.Panic("Failed to create entity/account: " + err.Error())
-    return domain.NilEntity(), domain.NilAccount(), err
+    return users.NilEntity(), users.NilAccount(), err
   }
 
   rr := httptest.NewRecorder()
@@ -381,12 +382,12 @@ func AuthEntityAdminSignup(
   log.Print(rr.Body.String())
 
   var ids struct{
-    EntityID  domain.EntityID  `json:"entity_id"`
-    AccountID domain.AccountID `json:"account_id"`
+    EntityID  users.EntityID  `json:"entity_id"`
+    AccountID users.AccountID `json:"account_id"`
   }
   if err := json.NewDecoder(rr.Body).Decode(&ids); err != nil {
     log.Panic("Failed to parse response: " + err.Error())
-    return domain.NilEntity(), domain.NilAccount(), err
+    return users.NilEntity(), users.NilAccount(), err
   }
 
   return ids.EntityID, ids.AccountID, nil
@@ -395,16 +396,16 @@ func AuthEntityAdminSignup(
 func SubAccountSignup(
   ctx       context.Context,
   r         *mux.Router,
-  signupReq domain.AccountSignupReq,
-  atoken    domain.Token,
-)( domain.AccountID, error ){
-  var throwError = func(f string, args ...any)(domain.AccountID, error){
-    return domain.NilAccount(), fmt.Errorf("SubAccountSignup: " + f, args...)
+  signupReq users.AccountSignupReq,
+  atoken    jwt.Token,
+)( users.AccountID, error ){
+  var throwError = func(f string, args ...any)(users.AccountID, error){
+    return users.NilAccount(), fmt.Errorf("SubAccountSignup: " + f, args...)
   }
 
   body, err := json.Marshal(signupReq)
   if err != nil {
-    return domain.NilAccount(), err
+    return users.NilAccount(), err
   }
   req, err := http.NewRequest(
     "POST",
@@ -421,24 +422,24 @@ func SubAccountSignup(
   }
 
   var accountID struct{
-    AccountID domain.AccountID `json:"account_id"`
+    AccountID users.AccountID `json:"account_id"`
   }
 
   if err := json.NewDecoder(rr.Body).Decode(&accountID); err != nil {
     return throwError("failed to decode response body: %s", err.Error())
   }
 
-  return domain.NilAccount(), nil
+  return users.NilAccount(), nil
 }
 
 func AccountSignin(
   ctx       context.Context,
   r         *mux.Router,
-  signinReq domain.AccountSigninReq,
-)(domain.Token, domain.Token, error) {
-  var throwError = func(f string, args ...any)(domain.Token, domain.Token, error){
-    return domain.Token{}, 
-           domain.Token{},
+  signinReq users.AccountSigninReq,
+)(jwt.Token, jwt.Token, error) {
+  var throwError = func(f string, args ...any)(jwt.Token, jwt.Token, error){
+    return jwt.Token{}, 
+           jwt.Token{},
            fmt.Errorf("AccountSignin: " + f, args...)
   }
 
@@ -464,8 +465,8 @@ func AccountSignin(
   }
 
   var tokens struct {
-    AccessToken  domain.Token `json:"access_token"`
-    RefreshToken domain.Token `json:"refresh_token"`
+    AccessToken  jwt.Token `json:"access_token"`
+    RefreshToken jwt.Token `json:"refresh_token"`
   }
   if err := json.NewDecoder(rr.Body).Decode(&tokens); err != nil {
     return throwError("failed to unmarshal resposne: %s", err.Error())
@@ -477,7 +478,7 @@ func AccountSignin(
 func DropEntity(
   ctx     context.Context,
   r       *mux.Router,
-  atoken  domain.Token,
+  atoken  jwt.Token,
 ) error {
   var throwError = func(f string, args ...any) error {
     return fmt.Errorf("DropEntity: " + f, args...)
@@ -536,10 +537,10 @@ func RefreshTokens(
   ctx     context.Context,
   r       *mux.Router,
   refresh string,
-)( domain.Token, domain.Token, error ){
-  var throwError = func(f string, args ...any)(domain.Token, domain.Token, error){
-    return domain.Token{}, 
-           domain.Token{}, 
+)( jwt.Token, jwt.Token, error ){
+  var throwError = func(f string, args ...any)(jwt.Token, jwt.Token, error){
+    return jwt.Token{}, 
+           jwt.Token{}, 
            fmt.Errorf("RefreshTokens: "+f, args...)
   }
 
@@ -567,7 +568,7 @@ func RefreshTokens(
     return throwError("http status code is non-ok: %d", rr.Code)
   }
 
-  var newTokens domain.TokenResponse 
+  var newTokens jwt.TokenResponse 
 
   if err := json.NewDecoder(rr.Body).Decode(&newTokens); err != nil {
     return throwError("failed to marshal response body: %s", err.Error())
@@ -579,7 +580,7 @@ func RefreshTokens(
 func AccountSignout(
   ctx     context.Context,
   r       *mux.Router,
-  access  domain.Token,
+  access  jwt.Token,
 ) error {
   var throwError = func(f string, args ...any) error {
     return fmt.Errorf("AccountSignout: " + f, args...)

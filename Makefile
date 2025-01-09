@@ -6,7 +6,7 @@ MKFILE_DIR  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 ##  Postgres Development Commands
 .PHONY: go_replace dev_mgrok dev_auth_migrate dev_docker_up dev_docker_down dev_pg_remove dev_neo_remove dev_pg_reset dev_pg
 
-go_replace: 
+go_replace:      ## go_replace       :: Requires two cli args: from="SomeString" to="ToString" -- Taking both arguments, we recursively finds and replace all 'to's with 'from's in all *.go files under ./Fidicus
 	@if [ "$$from" = "" ]; then             \
 		echo "Missing 'from' input argument"; \
 		exit 1;                               \
@@ -15,7 +15,7 @@ go_replace:
 		echo "Missing 'to' input argument";   \
 		exit 1;                               \
 	fi;
-	@find . -type f -name "*.go" -exec sed -i '' 's/$$from/$$to/g' {}
+	@find . -type f -name "*.go" -exec sed -i '' 's/$$from/$$to/g' {} +
 
 dev_mgrok:       ## dev_mgrok       :: Starts up our mgrok server -- allowing us to test our development application online
 	@ngrok http --url=on-shad-capable.ngrok-free.app 8080

@@ -13,8 +13,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/TylerAldrich814/Fidicus/internal/shared/utils"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
-	shared "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/users"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/jwt"
 )
 
 // PGRepo -- A Postgres wrapper that implements AuthRepository
@@ -84,9 +85,9 @@ func NewAuthRepo(
 //   - ErrDBFailedToCommitTX
 func(pb *PGRepo) CreateEntity(
   ctx        context.Context, 
-  entityReq  domain.EntitySignupReq,
-  accountReq domain.AccountSignupReq,
-)( domain.EntityID, domain.AccountID, error) {
+  entityReq  users.EntitySignupReq,
+  accountReq users.AccountSignupReq,
+)( users.EntityID, users.AccountID, error) {
   var logError = func(f string, data ...any) {
     log.WithFields(log.Fields{
       "entity_name"   : entityReq.Name,
@@ -107,11 +108,11 @@ func(pb *PGRepo) CreateEntity(
 
   if qErr != nil {
     logError("Failed to query entities: %v", qErr)
-    return domain.NilEntity(), domain.NilAccount(), ErrDBFailedToQuery
+    return users.NilEntity(), users.NilAccount(), ErrDBFailedToQuery
   }
   if exists {
     logError("entity already exists")
-    return domain.NilEntity(), domain.NilAccount(), ErrDBEntityAlreadyExists
+    return users.NilEntity(), users.NilAccount(), ErrDBEntityAlreadyExists
   }
 
   qErr = pb.db.QueryRow(
@@ -121,37 +122,37 @@ func(pb *PGRepo) CreateEntity(
   ).Scan(&exists)
   if qErr != nil {
     logError("Failed to query accounts: %v", qErr)
-    return domain.NilEntity(), domain.NilAccount(), ErrDBFailedToQuery
+    return users.NilEntity(), users.NilAccount(), ErrDBFailedToQuery
   }
   if exists {
     logError("account already exists")
-    return domain.NilEntity(), domain.NilAccount(), ErrDBAccountAlreadyExists
+    return users.NilEntity(), users.NilAccount(), ErrDBAccountAlreadyExists
   }
 
   // ->> Generate IDs
-  entityID  := domain.NewEntityID()
-  accountID := domain.NewAccountID()
+  entityID  := users.NewEntityID()
+  accountID := users.NewAccountID()
 
-  entity := domain.Entity {
+  entity := users.Entity {
     ID          : entityID,
     Name        : entityReq.Name,
     Description : entityReq.Description,
-    AccountIDs  : []domain.AccountID{accountID},
+    AccountIDs  : []users.AccountID{accountID},
     CreatedAt   : time.Now(),
     UpdatedAt   : time.Now(),
   }
 
-  hashPassw, err := domain.HashPassword(accountReq.Passw)
+  hashPassw, err := users.HashPassword(accountReq.Passw)
   if err != nil {
     logError("failed to hash password: %v", err)
-    return domain.NilEntity(), domain.NilAccount(), ErrDBInternalFailure
+    return users.NilEntity(), users.NilAccount(), ErrDBInternalFailure
   }
-  account := domain.Account {
+  account := users.Account {
     ID              : accountID,
     EntityID        : entityID,
     Email           : accountReq.Email,
     PasswHash       : hashPassw,
-    Role            : shared.AccessRoleEntity,
+    Role            : role.AccessRoleEntity,
     FirstName       : accountReq.FirstName,
     LastName        : accountReq.LastName,
     CellphoneNumber : accountReq.CellphoneNumber,
@@ -160,7 +161,7 @@ func(pb *PGRepo) CreateEntity(
   tx, err := pb.db.Begin(ctx)
   if err != nil {
     logError("failed to create transaction: %v", err)
-    return domain.NilEntity(), domain.NilAccount(), ErrDBFailedToBeginTX
+    return users.NilEntity(), users.NilAccount(), ErrDBFailedToBeginTX
   }
   defer tx.Rollback(ctx)
 
@@ -186,10 +187,10 @@ func(pb *PGRepo) CreateEntity(
     var pgErr *pgconn.PgError
     if errors.As(err, &pgErr) && pgErr.Code == "23505" {
       logError("entity name already taken: " + err.Error())
-      return domain.NilEntity(), domain.NilAccount(), ErrDBEntityAlreadyExists
+      return users.NilEntity(), users.NilAccount(), ErrDBEntityAlreadyExists
     }
     logError("entity creation failed: " + err.Error())
-    return  domain.NilEntity(), domain.NilAccount(), ErrDBFailedToInsert
+    return  users.NilEntity(), users.NilAccount(), ErrDBFailedToInsert
   }
   _, err = tx.Exec(
     ctx,
@@ -221,18 +222,18 @@ func(pb *PGRepo) CreateEntity(
     var pgErr *pgconn.PgError
     if errors.As(err, &pgErr) && pgErr.Error() == "23505" {
       logError("Account email already taken: " + err.Error())
-      return domain.NilEntity(), domain.NilAccount(), ErrDBAccountAlreadyExists
+      return users.NilEntity(), users.NilAccount(), ErrDBAccountAlreadyExists
     }
     logError("account creation failed: " + err.Error())
-    return domain.NilEntity(), domain.NilAccount(), ErrDBFailedToInsert
+    return users.NilEntity(), users.NilAccount(), ErrDBFailedToInsert
   }
 
   if err := tx.Commit(ctx); err != nil {
     logError("Failed to commit DB transaction: " + err.Error())
-    return domain.NilEntity(), domain.NilAccount(), ErrDBFailedToCommitTX
+    return users.NilEntity(), users.NilAccount(), ErrDBFailedToCommitTX
   }
 
-  return domain.EntityID(entityID), domain.AccountID(accountID), nil
+  return users.EntityID(entityID), users.AccountID(accountID), nil
 }
 
 // CreateAccount - Creates a new Entity Account.
@@ -249,8 +250,8 @@ func(pb *PGRepo) CreateEntity(
 //   - ErrDBMissingRequiredFields
 func(pg *PGRepo) CreateAccount(
   ctx        context.Context, 
-  accountReq domain.AccountSignupReq,
-)( domain.AccountID, error){
+  accountReq users.AccountSignupReq,
+)( users.AccountID, error){
   var logError = func(f string, data ...any) {
     log.WithFields(log.Fields{
       "eid"   : accountReq.EntityID,
@@ -263,19 +264,19 @@ func(pg *PGRepo) CreateAccount(
   }
 
   // <TODO> :: Should we allow access_role_entity accounts create fellow role_account_entitys ??
-  if accountReq.Role == shared.AccessRoleEntity {
+  if accountReq.Role == role.AccessRoleEntity {
     logError("Access Role Entity can only be created during Entity creation")
-    return domain.NilAccount(), ErrDBUnauthorized
+    return users.NilAccount(), ErrDBUnauthorized
   }
 
   var err error
   eid := accountReq.EntityID
-  if eid == domain.NilEntity() {
+  if eid == users.NilEntity() {
     if accountReq.EntityName == "" {
       logError(
         "missing entity information: ID or Name are required",
       )
-      return domain.NilAccount(), ErrDBMissingRequiredFields
+      return users.NilAccount(), ErrDBMissingRequiredFields
     }
     eid, err = pg.GetEntityIDByName(ctx, accountReq.EntityName)
     if err != nil {
@@ -284,7 +285,7 @@ func(pg *PGRepo) CreateAccount(
         accountReq.EntityName, 
         err.Error(),
       )
-      return domain.NilAccount(), ErrDBEntityNotFound
+      return users.NilAccount(), ErrDBEntityNotFound
     }
   } 
 
@@ -296,30 +297,30 @@ func(pg *PGRepo) CreateAccount(
     eid,
   ).Scan(&exists); qErr != nil {
     logError("failed to query entities: %v", qErr)
-    return domain.NilAccount(), ErrDBFailedToQuery
+    return users.NilAccount(), ErrDBFailedToQuery
   }
 
   if !exists {
     logError("entity doesn't exist")
-    return domain.NilAccount(), ErrDBEntityNotFound
+    return users.NilAccount(), ErrDBEntityNotFound
   }
 
   tx, err := pg.db.Begin(ctx)
   if err != nil {
     logError("failed to create new transaction: %v", err)
-    return domain.NilAccount(), ErrDBFailedToBeginTX
+    return users.NilAccount(), ErrDBFailedToBeginTX
   }
 
   // ->> Create New Account Data
-  passwHash, err := domain.HashPassword(accountReq.Passw)
+  passwHash, err := users.HashPassword(accountReq.Passw)
   if err != nil {
     logError("failed to hash password: %v", err)
-    return domain.NilAccount(), ErrDBInternalFailure
+    return users.NilAccount(), ErrDBInternalFailure
   }
 
   accountID := uuid.New()
-  account := domain.Account {
-    ID              : domain.NewAccountID(),
+  account := users.Account {
+    ID              : users.NewAccountID(),
     EntityID        : accountReq.EntityID,
     Email           : accountReq.Email,
     PasswHash       : passwHash,
@@ -361,19 +362,19 @@ func(pg *PGRepo) CreateAccount(
     var pgErr *pgconn.PgError
     if errors.As(err, &pgErr) && pgErr.Code == "23505" {
       logError("account already exists")
-      return domain.NilAccount(), ErrDBAccountAlreadyExists
+      return users.NilAccount(), ErrDBAccountAlreadyExists
     }
     logError("failed to insert new Account: %v", err)
-    return  domain.NilAccount(), ErrDBFailedToInsert
+    return  users.NilAccount(), ErrDBFailedToInsert
   }
 
   // Commit Changes:
   if err := tx.Commit(ctx); err != nil {
     logError("failed to commit DB Transaction: %v", err)
-    return domain.NilAccount(), ErrDBFailedToCommitTX
+    return users.NilAccount(), ErrDBFailedToCommitTX
   }
 
-  return domain.AccountID(accountID), nil
+  return users.AccountID(accountID), nil
 }
 
 // RemoveEntityByID - <TEMP> Removes an entity via it's ID
@@ -384,7 +385,7 @@ func(pg *PGRepo) CreateAccount(
 //   - ErrDBFailedToCommitTX
 func(pg *PGRepo) RemoveEntityByID(
   ctx context.Context, 
-  id domain.EntityID,
+  id users.EntityID,
 ) error {
   var logError = func(f string, args ...any) {
     log.WithFields(log.Fields{
@@ -447,7 +448,7 @@ func(pg *PGRepo) RemoveEntityByName(
 //   - ErrDBFailedToCommitTX
 func(pg *PGRepo) RemoveAccountByID(
   ctx context.Context, 
-  id  domain.AccountID,
+  id  users.AccountID,
 ) error {
   var logError = func(e string) {
     log.WithFields(log.Fields{
@@ -507,14 +508,14 @@ func(pg *PGRepo) RemoveAccountByEmail(
 func(pg *PGRepo) GetEntityIDByName(
   ctx  context.Context, 
   name string,
-)( domain.EntityID, error ){
+)( users.EntityID, error ){
   var logError = func(e string){
     log.WithFields(log.Fields{
       "name": name,
     }).Error("GetEntityIDByName: " + e)
   }
 
-  var entityID domain.EntityID
+  var entityID users.EntityID
 
   err := pg.db.QueryRow(
     ctx,
@@ -524,10 +525,10 @@ func(pg *PGRepo) GetEntityIDByName(
   if err != nil {
     if errors.Is(err, pgx.ErrNoRows){
       logError("No Rows with name found")
-      return domain.NilEntity(), ErrDBEntityNotFound
+      return users.NilEntity(), ErrDBEntityNotFound
     }
     logError("Unknown error occurred: " + err.Error())
-    return domain.NilEntity(), ErrDBInternalFailure
+    return users.NilEntity(), ErrDBInternalFailure
   }
 
   return entityID, nil
@@ -540,14 +541,14 @@ func(pg *PGRepo) GetEntityIDByName(
 func(pg *PGRepo) GetAccountIDByEmail(
   ctx   context.Context, 
   email string,
-)( domain.AccountID, error ){
+)( users.AccountID, error ){
   var logError = func(e string){
     log.WithFields(log.Fields{
       "email": email,
     }).Error("GetAccountIdByName: " + e)
   }
 
-  var accountID domain.AccountID
+  var accountID users.AccountID
 
   if err := pg.db.QueryRow(
     ctx,
@@ -556,16 +557,17 @@ func(pg *PGRepo) GetAccountIDByEmail(
   ).Scan(&accountID); err != nil {
     if errors.Is(err, pgx.ErrNoRows){
       logError("no Rows with email found")
-      return domain.NilAccount(), ErrDBAccountNotFound
+      return users.NilAccount(), ErrDBAccountNotFound
     }
     logError("Unknown error occurred: " + err.Error())
-    return domain.NilAccount(), ErrDBInternalFailure
+    return users.NilAccount(), ErrDBInternalFailure
   }
 
   return accountID, nil
 }
 
-// AccountSignin - Before signing account in. First detects if account exists then checks to make sure account is a Subaccount of Entity.
+// AccountSignin - Before signing account in. First detects if account exists 
+// then checks to make sure account is a Subaccount of Entity.
 // 
 // Potential Errors:
 //   - ErrDBMissingRequiredFields
@@ -575,8 +577,8 @@ func(pg *PGRepo) GetAccountIDByEmail(
 //   - ErrDBFailedToInsert
 func(pg *PGRepo) AccountSignin(
   ctx       context.Context, 
-  signinReq domain.AccountSigninReq,
-)( domain.Token, domain.Token, error){
+  signinReq users.AccountSigninReq,
+)( jwt.Token, jwt.Token, error){
   var logError = func(e string){
     log.WithFields(log.Fields{
       "Entity"    : signinReq.EntityName,
@@ -587,15 +589,15 @@ func(pg *PGRepo) AccountSignin(
 
   if signinReq.EntityName == "" {
     logError("missing required field(s)")
-    return domain.Token{}, domain.Token{}, ErrDBMissingRequiredFields
+    return jwt.Token{}, jwt.Token{}, ErrDBMissingRequiredFields
   }
 
   // ->> Query for Account via Account Email:
   var account struct{
-    EntityID     domain.EntityID  `json:"entity_id"`
-    ID           domain.AccountID `json:"id"`
+    EntityID     users.EntityID  `json:"entity_id"`
+    ID           users.AccountID `json:"id"`
     PasswordHash string           `json:"password_hash"`
-    Role         shared.Role      `json:"role"`
+    Role         role.Role      `json:"role"`
   }
 
   if err := pg.db.QueryRow(
@@ -610,39 +612,39 @@ func(pg *PGRepo) AccountSignin(
   ); err != nil {
     if errors.Is(err, pgx.ErrNoRows){
       logError("failed to query user by email: " + err.Error())
-      return domain.Token{}, domain.Token{}, ErrDBFailedToQuery
+      return jwt.Token{}, jwt.Token{}, ErrDBFailedToQuery
     }
 
     logError("unknown error occurred: " + err.Error())
-    return domain.Token{}, domain.Token{}, ErrDBInternalFailure
+    return jwt.Token{}, jwt.Token{}, ErrDBInternalFailure
   }
 
   // ->> Validate Password and PasswordHash
-  if valid := domain.ValidatePassword(
+  if valid := users.ValidatePassword(
     signinReq.Passw, 
     account.PasswordHash,
   ); !valid {
     logError("Account sign in failed -- Invalid Password")
-    return domain.Token{}, domain.Token{}, ErrDBInvalidPassword
+    return jwt.Token{}, jwt.Token{}, ErrDBInvalidPassword
   }
 
   // ->> Generate JWT Tokens
-  newAccessToken, err := domain.GenerateAccessToken(
+  newAccessToken, err := jwt.GenerateAccessToken(
     account.ID,
     account.EntityID,
     account.Role,
   )
   if err != nil || newAccessToken.SignedToken == "" {
-    return domain.Token{}, domain.Token{}, domain.ErrTokenGenFailed
+    return jwt.Token{}, jwt.Token{}, jwt.ErrTokenGenFailed
   }
 
-  newRefreshToken, err := domain.GenerateRefreshToken(
+  newRefreshToken, err := jwt.GenerateRefreshToken(
     account.ID,
     account.EntityID,
     account.Role,
   )
   if err != nil || newRefreshToken.SignedToken == "" {
-    return domain.Token{}, domain.Token{}, domain.ErrTokenGenFailed
+    return jwt.Token{}, jwt.Token{}, jwt.ErrTokenGenFailed
   }
 
   // ->> Store newly created RefreshToken.
@@ -652,7 +654,7 @@ func(pg *PGRepo) AccountSignin(
     newRefreshToken,
   ); err != nil {
     logError("AccountSignin: " + err.Error())
-    return domain.Token{}, domain.Token{}, err
+    return jwt.Token{}, jwt.Token{}, err
   }
 
   return newAccessToken, newRefreshToken, nil
@@ -663,7 +665,7 @@ func(pg *PGRepo) AccountSignin(
 // validated via their provided access token.
 func(pg *PGRepo) AccountSignout(
   ctx       context.Context,
-  accountID domain.AccountID,
+  accountID users.AccountID,
 ) error {
   var logError = func(f string, args ...any) {
     log.WithFields(log.Fields{
@@ -702,8 +704,8 @@ func(pg *PGRepo) AccountSignout(
 //   - ErrDBFailedToCommitTX
 func(pg *PGRepo) StoreRefreshToken(
   ctx       context.Context, 
-  accountID domain.AccountID,
-  token     domain.Token,
+  accountID users.AccountID,
+  token     jwt.Token,
 ) error {
   var logError = func(e string) {
     log.WithFields(log.Fields{
@@ -747,10 +749,10 @@ func(pg *PGRepo) StoreRefreshToken(
 //
 // Potential Errors:
 //   - ErrDBFailedToQuery
-//   - domain.ErrTokenExpired
+//   - users.ErrTokenExpired
 func( pg *PGRepo) ValidateRefreshToken(
   ctx       context.Context,
-  accountID domain.AccountID,
+  accountID users.AccountID,
   token     string,
 ) error {
   var logError = func(f string, data ...any) {
@@ -781,7 +783,7 @@ func( pg *PGRepo) ValidateRefreshToken(
   // Check Refresh Token Expiration:
   if expiresAt.Before(time.Now()){
     logError("Refresh Token is Expired")
-    return domain.ErrTokenExpired
+    return jwt.ErrTokenExpired
   }
 
   return nil
@@ -790,22 +792,22 @@ func( pg *PGRepo) ValidateRefreshToken(
 // RefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
 func(pg *PGRepo) CreateRefreshToken(
   ctx       context.Context, 
-  entityID  domain.EntityID,
-  accountID domain.AccountID,
-  role      shared.Role,
-)( domain.Token, domain.Token, error ){
+  entityID  users.EntityID,
+  accountID users.AccountID,
+  role      role.Role,
+)( jwt.Token, jwt.Token, error ){
 
-  var throwError = func(err error)(domain.Token, domain.Token, error){
-    return domain.Token{}, domain.Token{}, err
+  var throwError = func(err error)(jwt.Token, jwt.Token, error){
+    return jwt.Token{}, jwt.Token{}, err
   }
 
   // ->> Generate new JWT Tokens.
-  newAccessToken, err := domain.GenerateAccessToken(accountID, entityID, role)
+  newAccessToken, err := jwt.GenerateAccessToken(accountID, entityID, role)
   if err != nil {
     return throwError(err)
   }
 
-  newRefreshToken, err := domain.GenerateRefreshToken(accountID, entityID, role)
+  newRefreshToken, err := jwt.GenerateRefreshToken(accountID, entityID, role)
   if err != nil {
     return throwError(err)
   }

@@ -3,9 +3,8 @@ package http
 import (
 	"net/http"
 
-	// auth "github.com/TylerAldrich814/Fidicus/internal/auth/domain"
-	"github.com/TylerAldrich814/Fidicus/internal/shared/domain"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http/middleware"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/role"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/middleware"
 	"github.com/TylerAldrich814/Fidicus/internal/schema/application"
 	"github.com/gorilla/mux"
 )
@@ -31,7 +30,7 @@ func(s *SchemaHTTPHandler) RegisterRoutes(r mux.Router) error {
     "/upload",
     middleware.RoleAuthMiddleware(
       http.HandlerFunc(s.UploadSchemas),
-      domain.AccessRoleAccount,
+      role.AccessRoleAccount,
     ),
   ).Methods("PUT")
 
@@ -39,7 +38,7 @@ func(s *SchemaHTTPHandler) RegisterRoutes(r mux.Router) error {
     "/delete",
     middleware.RoleAuthMiddleware(
       http.HandlerFunc(s.DeleteSchema),
-      domain.AccessRoleAccount,
+      role.AccessRoleAccount,
     ),
   ).Methods("DELETE")
 
@@ -52,7 +51,7 @@ func(s *SchemaHTTPHandler) RegisterRoutes(r mux.Router) error {
     "/sync",
     middleware.RoleAuthMiddleware(
       http.HandlerFunc(s.SyncSchemas),
-      domain.AccessRoleAccount,
+      role.AccessRoleAccount,
     ),
   ).Methods("POST")
 

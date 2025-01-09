@@ -63,3 +63,24 @@ func(d *PGSQLConfig) GetPostgresURI() string {
     d.SSLMode,
   )
 }
+
+// var (
+//   envInstance *env
+//   once        sync.Once
+// )
+//
+// type env struct { }
+//
+// func GetEnv(key, defaultValue string) string {
+//   // if envInstance == nil {
+//   // }
+//   once.Do(func(){
+//     godotenv.Load()
+//   })
+//
+//   value := os.Getenv(key)
+//   if value == "" {
+//     return defaultValue
+//   }
+//   return value
+// }

@@ -6,7 +6,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+  "github.com/TylerAldrich814/Fidicus/internal/shared/jwt"
+)
+
+var (
+  ClaimsKey = "claims"
 )
 
 // AuthMiddleware - Middleware for verifying JWT Token existance and validity.
@@ -37,9 +41,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
     }
     tokenString := tokenParts[1]
 
-    claims, err := domain.VerifyToken(tokenString)
+    claims, err := jwt.VerifyToken(tokenString)
     if err != nil {
-      if errors.Is(err, domain.ErrTokenExpired) {
+      if errors.Is(err, jwt.ErrTokenExpired) {
         http.Error(w,
           "expired",
           http.StatusUnauthorized,

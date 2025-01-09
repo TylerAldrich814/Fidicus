@@ -10,11 +10,11 @@ import (
 
 	"github.com/gorilla/mux"
 
-  role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/users"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/jwt"
+  "github.com/TylerAldrich814/Fidicus/internal/shared/role"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/application"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http/middleware"
-	// "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/oauth"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/middleware"
 	repo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/utils"
 
@@ -96,8 +96,8 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
 // 
 func(a *AuthHTTPHandler) SignupEntity(w http.ResponseWriter, r *http.Request) {
   var req struct {
-    Entity  domain.EntitySignupReq
-    Account domain.AccountSignupReq
+    Entity  users.EntitySignupReq
+    Account users.AccountSignupReq
   }
 
   // ->> Extract Entity and Account JSON Data:
@@ -130,8 +130,8 @@ func(a *AuthHTTPHandler) SignupEntity(w http.ResponseWriter, r *http.Request) {
   }
 
   ids := struct {
-    EntityID  domain.EntityID  `json:"entity_id"`
-    AccountID domain.AccountID  `json:"account_id"`
+    EntityID  users.EntityID  `json:"entity_id"`
+    AccountID users.AccountID  `json:"account_id"`
   }{
     EntityID  : eid,
     AccountID : aid,
@@ -147,14 +147,14 @@ func(a *AuthHTTPHandler) SignupEntity(w http.ResponseWriter, r *http.Request) {
 
 // signupSubAccount - Attempts to create a Subaccount for a specified Entity. 
 func(a *AuthHTTPHandler) SignupSubAccount(w http.ResponseWriter, r *http.Request) {
-  var account domain.AccountSignupReq
+  var account users.AccountSignupReq
 
   if err := json.NewDecoder(r.Body).Decode(&account); err != nil {
     http.Error(w, "<json error>missing required fields", http.StatusBadRequest)
     return
   }
 
-  if account.EntityID == domain.NilEntity() && account.EntityName == "" {
+  if account.EntityID == users.NilEntity() && account.EntityName == "" {
     http.Error(w, "entity data missing. Need either Entity ID or Name", http.StatusBadRequest)
     return 
   }
@@ -192,7 +192,7 @@ func(a *AuthHTTPHandler) SignupSubAccount(w http.ResponseWriter, r *http.Request
     w,
     http.StatusOK,
     struct {
-      AccountID domain.AccountID `json:"account_id"`
+      AccountID users.AccountID `json:"account_id"`
     }{
       AccountID: aid,
     },
@@ -201,7 +201,7 @@ func(a *AuthHTTPHandler) SignupSubAccount(w http.ResponseWriter, r *http.Request
 
 // Signin - Handles User Signin Request.
 func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
-  var signinReq domain.AccountSigninReq
+  var signinReq users.AccountSigninReq
 
   if err := json.NewDecoder(r.Body).Decode(&signinReq); err != nil {
     http.Error(w, "failed to decode json body", http.StatusBadRequest)
@@ -236,8 +236,8 @@ func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
   }
 
   var tokens = struct {
-    AccessToken  domain.Token `json:"access_token"`
-    RefreshToken domain.Token `json:"refresh_token"`
+    AccessToken  jwt.Token `json:"access_token"`
+    RefreshToken jwt.Token `json:"refresh_token"`
   }{
     AccessToken  : access,
     RefreshToken : refresh,
@@ -268,7 +268,7 @@ func(a *AuthHTTPHandler) UpdateRefreshToken(w http.ResponseWriter, r *http.Reque
   }
 
   // ->> Validate and extract Claims from user provided Refresh Token.
-  claims, err := domain.VerifyToken(req.RefreshToken)
+  claims, err := jwt.VerifyToken(req.RefreshToken)
   if err != nil {
     http.Error(w, "invalid or expired refresh token", http.StatusUnauthorized)
     return
@@ -298,7 +298,7 @@ func(a *AuthHTTPHandler) UpdateRefreshToken(w http.ResponseWriter, r *http.Reque
   }
 
   // ->> Return new JWT Tokens
-  resp := domain.TokenResponse {
+  resp := jwt.TokenResponse {
     AccessToken  : newAccessToken,
     RefreshToken : newRefreshToken,
   }
@@ -312,7 +312,7 @@ func(a *AuthHTTPHandler) UpdateRefreshToken(w http.ResponseWriter, r *http.Reque
 // RemoveEntity - [PROTECTED] Communicates to our Auth service to perfrom a RemoveEntity event.
 // Effectively blocking all Subaccounts from accessing this Entities data.
 func(a *AuthHTTPHandler) RemoveEntity(w http.ResponseWriter, r *http.Request){
-  claims, ok := r.Context().Value(middleware.ClaimsKey).(*domain.AuthClaims)
+  claims, ok := r.Context().Value(middleware.ClaimsKey).(*jwt.AuthClaims)
   if !ok {
     http.Error(w, "missing claims in context", http.StatusInternalServerError)
     return
@@ -330,7 +330,7 @@ func(a *AuthHTTPHandler) RemoveEntity(w http.ResponseWriter, r *http.Request){
 // Effectively blocking access to this account.
 func(a *AuthHTTPHandler) RemoveSubAccount(w http.ResponseWriter, r *http.Request){
   // Extract and Unmarshal EntityID and AccountID provded via AuthMiddleware:
-  claims, ok := r.Context().Value(middleware.ClaimsKey).(*domain.AuthClaims)
+  claims, ok := r.Context().Value(middleware.ClaimsKey).(*jwt.AuthClaims)
   if !ok {
     http.Error(w, "missing claims in context", http.StatusUnauthorized)
     return
@@ -347,7 +347,7 @@ func(a *AuthHTTPHandler) RemoveSubAccount(w http.ResponseWriter, r *http.Request
 // Signout - [PROTECTED] Communicates to our Auth service to perfrom an AccountSignout event.
 // Effectively removing the user's Refresh Token from our Database.
 func(a *AuthHTTPHandler) Signout(w http.ResponseWriter, r *http.Request) {
-  claims, ok := r.Context().Value(middleware.ClaimsKey).(*domain.AuthClaims)
+  claims, ok := r.Context().Value(middleware.ClaimsKey).(*jwt.AuthClaims)
   if !ok {
     http.Error(w, "missing claims in context", http.StatusUnauthorized)
     return
