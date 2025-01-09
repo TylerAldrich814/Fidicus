@@ -52,7 +52,7 @@ func main(){
   testProtoFiles := []string{"common.proto", "user.proto", "other.proto", "third.proto"}
   ctx := context.Background()
 
-  protoFiles, err := proto.NewProtoFiles(ctx, testProtoFiles)
+  protoFiles, err := proto.NewLocalFiles(ctx, "./protos", testProtoFiles)
   if err != nil {
     panic(err)
   }

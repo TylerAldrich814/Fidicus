@@ -24,8 +24,6 @@ var (
 
 func main(){
   // ->> App Config
-  config.LoadEnv()
-
   ctx, cancel := signal.NotifyContext(
     context.Background(),
     os.Interrupt,
@@ -37,7 +35,7 @@ func main(){
   // <TODO> Tracker: jaegar
 
   // ->> Auth Repository Initialization:
-  dbConfig := config.GetDBConfig()
+  dbConfig := config.GetPGSQLConfig()
   dsn := dbConfig.GetPostgresURI()
 
   authRepo, err := AuthRepo.NewAuthRepo(

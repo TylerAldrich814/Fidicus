@@ -5,7 +5,7 @@ import "errors"
 // Repository Errors: Errors that may occur during Database actions & requests.
 var (
   ErrDBInternalFailure       = errors.New("an internal error occurred.")
-  ErrDBConfigParse           = errors.New("failed to parse database config")
+  ErrPGSQLConfigParse           = errors.New("failed to parse database config")
   ErrDBFailedCreation        = errors.New("failed to create postgres database")
   ErrDBFailedPing            = errors.New("failed to ping postgres database")
 

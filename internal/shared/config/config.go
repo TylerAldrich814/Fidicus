@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 )
 
 // AppConfig - Defines Global Variable Parameters
@@ -12,8 +11,8 @@ type AppConfig struct {
   LogLevel    string
 }
 
-// DBConfig - Defines Postgres Database Configuration
-type DBConfig struct {
+// PGSQLConfig - Defines Postgres Database Configuration
+type PGSQLConfig struct {
   Host      string
   Port      string
   User      string
@@ -24,26 +23,36 @@ type DBConfig struct {
 
 func GetAppConfig() AppConfig {
   return AppConfig{
-    ServerPort  : GetEnv("SERVER_PORT", "50051"),
-    Environment : GetEnv("ENVIRONMENT", "development"),
-    LogLevel    : GetEnv("LOG_LEVEL",   "debug"),
+    ServerPort  : GetEnv("SERVER_PORT", ""),
+    Environment : GetEnv("ENVIRONMENT", ""),
+    LogLevel    : GetEnv("LOG_LEVEL",   ""),
   }
 }
 
-func GetDBConfig() DBConfig {
-  return DBConfig{
-    Host    : GetEnv("DB_HOST",    "localhost"),
-    Port    : GetEnv("DB_PORT",    "5432"),
-    User    : GetEnv("DB_USER",    "admin"),
-    Passw   : GetEnv("DB_PASSW",   "AdminPassword"),
-    DBName  : GetEnv("DB_NAME",    "fidicus_auth"),
-    SSLMode : GetEnv("DB_SSLMODE", "disable"),
+func GetPgsqlConfig(service string)( PGSQLConfig, error ){
+  dbName := ""
+  switch service {
+  case "-auth":
+    dbName = "AUTH_PGSQL"
+  case "-schema":
+    dbName = "SCHEMA_PGSQL"
+  default:
+    return PGSQLConfig{}, fmt.Errorf("Unknown service name: \"%s\"", service)
   }
+
+  return PGSQLConfig{
+    DBName  : GetEnv(dbName,    ""),
+    Host    : GetEnv(dbName + "_HOST",    ""),
+    Port    : GetEnv(dbName + "_PORT",    ""),
+    User    : GetEnv(dbName + "_USER",    ""),
+    Passw   : GetEnv(dbName + "_PASSW",   ""),
+    SSLMode : GetEnv(dbName + "_SSLMODE", ""),
+  }, nil
 }
 
-// GetPostgresURI - Creates a Postgres URI string via DBConfig variables
+// GetPostgresURI - Creates a Postgres URI string via PGSQLConfig variables
 //     ->> postgres://USER:PASSW@HOST:PORT/DBNAME?sslmode=SSLMODE
-func(d *DBConfig) GetPostgresURI() string {
+func(d *PGSQLConfig) GetPostgresURI() string {
   return fmt.Sprintf(
     "postgres://%s:%s@%s:%s/%s?sslmode=%s",
     d.User,
@@ -53,12 +62,4 @@ func(d *DBConfig) GetPostgresURI() string {
     d.DBName,
     d.SSLMode,
   )
-}
-
-func GetEnv(key, defaultValue string) string {
-  value, exists := os.LookupEnv(key)
-  if !exists {
-    return defaultValue
-  }
-  return value
 }

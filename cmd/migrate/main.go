@@ -1,89 +1,61 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"os"
-	"strconv"
+	"strings"
 
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
-
+	"github.com/TylerAldrich814/Fidicus/cmd/migrate/db"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main(){
-  config.LoadEnv()
-
-  // Logger Setup:
   config.InitLogger()
 
-  // Database Configs:
-  dbConfig  := config.GetDBConfig()
-
-  // Postgres Connextion:
-  dsn := dbConfig.GetPostgresURI()
-  log.Printf("DSN \"%s\"", dsn)
-
-  db, err := sql.Open("postgres", dsn)
-  if err != nil {
-    log.Fatalf("Failed to connect to postgres: %v\n", err)
-  }
-  defer db.Close()
-
-  // Create Postgres Migration Driver:
-  driver, err := postgres.WithInstance(db, &postgres.Config{})
-  if err != nil {
-    log.Fatalf("Failed to create migration driver: %v\n", err)
-  }
-
-  // Create Migration Instance
-  m, err := migrate.NewWithDatabaseInstance(
-    "file://cmd/migrate/migrations/postgres",
-    "postgres",
-    driver,
-  )
-  if err != nil {
-    log.Fatalf("Failed to initialize postgres migration: %v\n", err)
+  if strings.ToLower(os.Args[1]) == "help" || os.Args[1] == "-h" {
+    log.Println(" --- Fidicus MIgration Tool ---")
+    log.Println("  -- Expects 3 sepeate commands:")
+    log.Println("  go run main.go -DB_ID XX XX :: 3 possible values, tells Migrate which database type to target")
+    log.Println("      | -pg")
+    log.Println("      | -neo")
+    log.Println("      | -s3")
+    log.Println(" go run main.go -DB_ID -SERVICE XX :: 2 possible values, tells Migrate which service to target.")
+    log.Println("      | -auth")
+    log.Println("      | -schema")
+    log.Println(" go run main.go -DB_ID -SERVICE ACTION :: 4 possible values, tells Migrate which action to use.")
+    log.Println("      | up")
+    log.Println("      | down")
+    log.Println("      | force")
+    log.Println("      | version")
+    log.Println(" NOTE: Not all services use the same databased. Currently, schema is the only service that uses all 3 database options")
+    log.Println("       Auth only uses Postgres. The purpose of this tool is for streamlining database actions between all services. As")
+    log.Println("       this project grows, the more we'll need this script for updating our migrations.")
   }
 
-  // Handle CLI Commands
-  if len(os.Args) < 2 {
-    log.Fatalf("Usage: go run main.go [up|down|force VERSION|version]")
+  if len(os.Args) < 4 {
+    log.Fatalf("Usage: go run main.go [-pg | -neo | -s3] [ -auth | -schema ] up | down | force [VERSION|version]")
+  }
+  // Setup Databases:
+  database, svc, cmd := os.Args[1], os.Args[2], os.Args[3]
+
+  if svc != "-auth" && svc != "-schema" {
+    log.Fatalf("Unknown service: \"%s\"", svc)
+  }
+  if svc == "-auth" && database != "-pg" {
+    log.Fatal("Auth service uses has Postgres, not \"%s\"", svc)
   }
 
-  switch os.Args[1] {
-  case "up":
-    if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-      log.Fatalf("Failed to apply migrations: %v\n", err)
+  switch database{
+  case "-pg":
+    if err := db.PostgresMigrataion(svc, cmd); err != nil  {
+      log.Fatal(err)
     }
-    log.Println("Migrations applied Successfully.")
-  case "down":
-    if err := m.Down(); err != nil && err != migrate.ErrNoChange {
-      log.Fatalf("Failed to rollback migrations: %v\n", err)
-    }
-    log.Println("Migrations rolled back successfully.")
-  case "force":
-    if len(os.Args) < 3 {
-      log.Fatalf("Usage: go run main.go force VERSION")
-    }
-    version, err := strconv.Atoi(os.Args[2])
-    if err != nil {
-      log.Fatalf("Invalid version number: %v\n", err)
-    }
-    if err := m.Force(version); err != nil {
-      log.Fatalf("Failed to force migration version: %v\n", err)
-    }
-    log.Printf("Migration force to version: %d\n", version)
-  case "version":
-    version, dirty, err := m.Version()
-    if err != nil {
-      log.Fatalf("Failed to get migration version: %v", err)
-    }
-    log.Printf("Current migration version: %d, Dirty: %v", version, dirty)
+  case "-neo":
 
+  case "-s3":
   default:
-    log.Fatalf("Unknown command: %s\n", os.Args)
+    log.Fatalf("Unknown database: \"%s\"", os.Args[1])
   }
 }
+

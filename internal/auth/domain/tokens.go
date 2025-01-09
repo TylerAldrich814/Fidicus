@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
+	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,14 +34,14 @@ type TokenResponse struct {
 type AuthToken struct {
   AccessToken  Token `json:"access_token"`
   RefreshToken Token `json:"refresh_token"`
-  AccessRole   Role  `json:"role"`
+  AccessRole   role.Role  `json:"role"`
 }
 
 // AuthClaims - Defines our custom JWT Token Claims to be added into each Token.
 type AuthClaims struct {
   EntityID  EntityID `json:"entity_id"`
   AccountID AccountID `json:"account_id"`
-  Role      Role      `json:"role"`
+  Role      role.Role      `json:"role"`
   jwt.RegisteredClaims
 }
 
@@ -48,7 +49,7 @@ type AuthClaims struct {
 func generateToken(
   accountID AccountID,
   entityID  EntityID,
-  role      Role,
+  role      role.Role,
   exp       time.Duration,
 )( Token, error ){
   claims := AuthClaims {
@@ -93,7 +94,7 @@ func RefreshToken(
 func GenerateAccessToken(
   accountID AccountID,
   entityID  EntityID,
-  role      Role,
+  role      role.Role,
 )( Token, error ){
   accessToken, err := generateToken(
     accountID,
@@ -117,7 +118,7 @@ func GenerateAccessToken(
 func GenerateRefreshToken(
   accountID  AccountID,
   entityID   EntityID,
-  role       Role,
+  role       role.Role,
 )( Token, error ){
   refreshToken, err := generateToken(
     accountID,
@@ -143,7 +144,7 @@ func GenerateRefreshToken(
 func GenerateJWTTokens(
   accountID AccountID,
   entityID  EntityID,
-  role      Role,
+  role      role.Role,
 )( *AuthToken, error ){
   accessToken, err := GenerateAccessToken(
     accountID,

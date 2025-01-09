@@ -1,18 +1,31 @@
 services:
-  postgres:
+  auth_postgres:
     image: postgres:15
-    container_name: fidicus-db
+    container_name: fidicus-auth-db
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSW}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_DB:       ${AUTH_PGSQL}
+      POSTGRES_USER:     ${AUTH_PGSQL_USER}
+      POSTGRES_PASSWORD: ${AUTH_PGSQL_PASSW}
     ports:
-      - "5432:5432"
+      - "${AUTH_PGSQL_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - fid_auth_pgsql:/var/lib/postgresql/data
 
-  neo4j:
+  schema_postgres:
+    image: postgres:15
+    container_name: fidicus-schema-pgsql
+    restart: always
+    environment:
+      POSTGRES_DB:      ${SCHEMA_PGSQL}
+      POSTGRES_USER:    ${SCHEMA_PGSQL_USER}
+      POSTGRES_PASSWORD: ${SCHEMA_PGSQL_PASSW}
+    ports:
+      - "${SCHEMA_PGSQL_PORT}:5432"
+    volumes:
+      - fid_schema_pgsql:/var/lib/postgresql/data
+
+  schema_neo4j:
     image: neo4j:5.26.0
     container_name: fidicus-neo4j
     restart: always
@@ -32,7 +45,8 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
+  fid_auth_pgsql:
+  fid_schema_pgsql:
   neo4j_data:
   neo4j_logs:
   neo4j_conf:

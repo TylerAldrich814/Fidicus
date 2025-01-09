@@ -10,10 +10,11 @@ import (
 
 	"github.com/gorilla/mux"
 
+  role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/application"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http/middleware"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/oauth"
+	// "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/oauth"
 	repo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/utils"
 
@@ -58,7 +59,7 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
     "/signup_account",
     middleware.RoleAuthMiddleware(
       http.HandlerFunc(a.SignupSubAccount),
-      domain.AccessRoleAdmin,
+      role.AccessRoleAdmin,
     ),
   ).Methods("POST")
 
@@ -66,7 +67,7 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
     "/remove_entity",
     middleware.RoleAuthMiddleware(
       http.HandlerFunc(a.RemoveEntity),
-      domain.AccessRoleEntity,
+      role.AccessRoleEntity,
     ),
   ).Methods("POST")
 
@@ -74,7 +75,7 @@ func(a *AuthHTTPHandler) RegisterRoutes(r *mux.Router) error {
     "/remove_account",
     middleware.RoleAuthMiddleware(
       http.HandlerFunc(a.RemoveSubAccount),
-      domain.AccessRoleAdmin,
+      role.AccessRoleAdmin,
     ),
   ).Methods("POST")
   
@@ -108,7 +109,7 @@ func(a *AuthHTTPHandler) SignupEntity(w http.ResponseWriter, r *http.Request) {
   if req.Entity.Name   == "" || 
      req.Account.Email == "" || 
      req.Account.Passw == "" ||
-     req.Account.Role  == domain.AccessRoleUnspecified {
+     req.Account.Role  == role.AccessRoleUnspecified {
        http.Error(w, "<json error>missing required fields", http.StatusBadRequest)
        return
      }
@@ -209,7 +210,7 @@ func(a *AuthHTTPHandler) Signin(w http.ResponseWriter, r *http.Request) {
   if signinReq.EntityName == "" ||
      signinReq.Email      == "" ||
      signinReq.Passw      == "" ||
-     signinReq.Role       == domain.AccessRoleUnspecified {
+     signinReq.Role       == role.AccessRoleUnspecified {
        http.Error(
          w, 
          fmt.Sprintf("<json error>missing required fields"), 
@@ -361,7 +362,7 @@ func(a *AuthHTTPHandler) Signout(w http.ResponseWriter, r *http.Request) {
 
 // GithubWebhook - 
 func(a *AuthHTTPHandler) GithubWebhook(w http.ResponseWriter, r *http.Request){
-  oauth.GithubWebhookHandler(w, r)
+  // oauth.GithubWebhookHandler(w, r)
 }
 
 // Shutdown - Allows for graceful shutdown 

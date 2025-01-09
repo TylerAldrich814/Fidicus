@@ -2,7 +2,8 @@ package middleware
 
 import (
 	"net/http"
-	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	auth "github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	"github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 )
 
 // RoleAuthMiddleware -- 2nd degree middleware under AuthMiddleware:
@@ -17,7 +18,7 @@ func RoleAuthMiddleware(next http.Handler, role domain.Role) http.Handler {
       http.Error(w, "internal server error: no handler", http.StatusInternalServerError)
       return
     }
-    claims, ok := r.Context().Value(ClaimsKey).(*domain.AuthClaims)
+    claims, ok := r.Context().Value(ClaimsKey).(*auth.AuthClaims)
     if !ok {
       http.Error(w, "missing auth claims", http.StatusUnauthorized)
       return

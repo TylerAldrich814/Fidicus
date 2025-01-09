@@ -15,11 +15,10 @@ import (
 
 func setupTestDB(ctx context.Context) domain.AuthRepository {
   // ->> App Config
-  config.LoadEnv()
   config.InitLogger()
 
   // ->> Auth Repository Initialization:
-  dbConfig := config.GetDBConfig()
+  dbConfig := config.GetPGSQLConfig()
   dsn := dbConfig.GetPostgresURI()
 
   db, err := NewAuthRepo(ctx, dsn)

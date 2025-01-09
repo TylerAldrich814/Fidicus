@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 )
 
 type Service struct {
@@ -92,7 +93,7 @@ func(s *Service) CreateRefreshToken(
   ctx       context.Context,
   entityID  domain.EntityID,
   accountID domain.AccountID,
-  role      domain.Role,
+  role      role.Role,
 )( domain.Token, domain.Token, error ){
   return s.repo.CreateRefreshToken(
     ctx,

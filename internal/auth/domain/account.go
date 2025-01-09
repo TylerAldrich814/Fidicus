@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 )
 
 type AccountID uuid.UUID
@@ -45,42 +46,42 @@ func(id *AccountID) UnmarshalJSON(data []byte) error {
 
 // Account defines the default Entity SubAccount with all of it's paramters.
 type Account struct {
-  ID              AccountID `json:"id"`
-  EntityID        EntityID  `json:"entity_id"`
-  Email           string    `json:"email"`
-  PasswHash       string    `json:"password_hash"`
-  Role            Role      `json:"role"`
-  FirstName       string    `json:"first_name"`
-  LastName        string    `json:"last_name"`
-  CellphoneNumber string    `json:"cellphone_number,omitempty"`
-  CreatesAt       time.Time `json:"created_at"`
-  UpdatedAt       time.Time `json:"updated_at"`
+  ID              AccountID  `json:"id"`
+  EntityID        EntityID   `json:"entity_id"`
+  Email           string     `json:"email"`
+  PasswHash       string     `json:"password_hash"`
+  Role            role.Role  `json:"role"`
+  FirstName       string     `json:"first_name"`
+  LastName        string     `json:"last_name"`
+  CellphoneNumber string     `json:"cellphone_number,omitempty"`
+  CreatesAt       time.Time  `json:"created_at"`
+  UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // AccountSignupReq - Defines the expected data structure for when new requesting Account owner makes a Signup Request.
 type AccountSignupReq struct {
-  EntityID        EntityID `json:"entity_id,omitempty"`
-  EntityName      string   `json:"entity_name,omitempty"`
-  Email           string   `json:"email"`
-  Passw           string   `json:"password"`
-  Role            Role     `json:"role"`
-  FirstName       string   `json:"first_name"`
-  LastName        string   `json:"last_name"`
-  CellphoneNumber string   `json:"cellphone_number,omitempty"`
+  EntityID        EntityID  `json:"entity_id,omitempty"`
+  EntityName      string    `json:"entity_name,omitempty"`
+  Email           string    `json:"email"`
+  Passw           string    `json:"password"`
+  Role            role.Role `json:"role"`
+  FirstName       string    `json:"first_name"`
+  LastName        string    `json:"last_name"`
+  CellphoneNumber string    `json:"cellphone_number,omitempty"`
 }
 
 // AccountSigninReq - Defines the expected data structure for when an Account Owner makes a Signin Request. 
 type AccountSigninReq struct {
-  EntityName string `json:"entity_name"`
-  Email      string `json:"email"`
-  Passw      string `json:"password"`
-  Role       Role   `json:"role"`
+  EntityName string    `json:"entity_name"`
+  Email      string    `json:"email"`
+  Passw      string    `json:"password"`
+  Role       role.Role `json:"role"`
 }
 
 func NewAccount(
-  email  string,
-  passw  string,
-  role   Role,
+  email     string,
+  passw     string,
+  role      role.Role,
   firstName string,
   lastName  string,
   number    string,

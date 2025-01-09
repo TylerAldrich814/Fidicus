@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package entity.other.v1alpha;
+package other.v1alpha;
 
 import "common.proto";
 import "user.proto";
@@ -10,6 +10,6 @@ message ThirdDegree {
 }
 
 message Other {
-  entity.user.v1alpha.User user = 1;
-  entity.common.v1alpha.Address address = 2;
+  user.v1alpha.User user = 1;
+  common.v1alpha.Address address = 2;
 }

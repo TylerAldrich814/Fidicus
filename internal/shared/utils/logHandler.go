@@ -24,7 +24,7 @@ func NewLogHandlerFunc(
   return func(lvl LogLevel, f string, args ...any){
     switch lvl {
     case LogInfo:
-      log.WithFields(fields).Info(fmt.Sprintf(fnName+f, args...))
+      log.WithFields(fields).Info(fmt.Sprintf(fnName+": "+f, args...))
     case LogWarn:
       log.WithFields(fields).Warn(fmt.Sprintf(fnName+f, args...))
     case LogErro:

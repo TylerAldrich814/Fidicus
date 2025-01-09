@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/TylerAldrich814/Fidicus/internal/shared/utils"
+	"github.com/TylerAldrich814/Fidicus/internal/auth/domain"
+	shared "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 )
 
 // PGRepo -- A Postgres wrapper that implements AuthRepository
@@ -24,11 +27,21 @@ func NewAuthRepo(
   ctx context.Context,
   dsn string,
 )( *PGRepo, error ){
+  var pushLog = utils.NewLogHandlerFunc(
+    "NewAuthRepo",
+    log.Fields{
+      "DSN": dsn,
+    },
+  )
 
   config, err := pgxpool.ParseConfig(dsn)
   if err != nil {
-    log.Error("Failed to Parse Postgres Database Config: " + err.Error())
-    return nil, ErrDBConfigParse
+    pushLog(
+      utils.LogErro,
+      "failed to parse postgres database config: %s",
+      err.Error(),
+    )
+    return nil, ErrPGSQLConfigParse
   }
 
   config.MaxConns = 10
@@ -38,21 +51,24 @@ func NewAuthRepo(
 
   pool, err := pgxpool.NewWithConfig(ctx, config)
   if err != nil {
-    log.Error("Failed to create Postgres Pool with Config: " + err.Error())
+    pushLog(
+      utils.LogErro,
+      "failed to create postgres pool with config: %s",
+      err.Error(),
+    )
     return nil, ErrDBFailedCreation
   }
 
   if err := pool.Ping(ctx); err != nil {
-    log.Error("Failed to Ping Database with newly created Postgres Pool: " + err.Error())
+    pushLog(
+      utils.LogErro,
+      "failed to ping database with newly created postgres pool: %s",
+      err.Error(),
+    )
     return nil, ErrDBFailedPing
   }
   
   return &PGRepo{ pool }, nil
-}
-
-// Close -- Closes the Postgres Pool Connection.
-func( pg *PGRepo ) Close(){
-  pg.db.Close()
 }
 
 // CreateEntity -- Creates a new Fidicus Entity with Root Privileges.
@@ -135,7 +151,7 @@ func(pb *PGRepo) CreateEntity(
     EntityID        : entityID,
     Email           : accountReq.Email,
     PasswHash       : hashPassw,
-    Role            : domain.AccessRoleEntity,
+    Role            : shared.AccessRoleEntity,
     FirstName       : accountReq.FirstName,
     LastName        : accountReq.LastName,
     CellphoneNumber : accountReq.CellphoneNumber,
@@ -247,7 +263,7 @@ func(pg *PGRepo) CreateAccount(
   }
 
   // <TODO> :: Should we allow access_role_entity accounts create fellow role_account_entitys ??
-  if accountReq.Role == domain.AccessRoleEntity {
+  if accountReq.Role == shared.AccessRoleEntity {
     logError("Access Role Entity can only be created during Entity creation")
     return domain.NilAccount(), ErrDBUnauthorized
   }
@@ -579,7 +595,7 @@ func(pg *PGRepo) AccountSignin(
     EntityID     domain.EntityID  `json:"entity_id"`
     ID           domain.AccountID `json:"id"`
     PasswordHash string           `json:"password_hash"`
-    Role         domain.Role      `json:"role"`
+    Role         shared.Role      `json:"role"`
   }
 
   if err := pg.db.QueryRow(
@@ -776,7 +792,7 @@ func(pg *PGRepo) CreateRefreshToken(
   ctx       context.Context, 
   entityID  domain.EntityID,
   accountID domain.AccountID,
-  role      domain.Role,
+  role      shared.Role,
 )( domain.Token, domain.Token, error ){
 
   var throwError = func(err error)(domain.Token, domain.Token, error){

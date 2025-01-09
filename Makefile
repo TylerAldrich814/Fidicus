@@ -4,7 +4,18 @@ export $(shell sed 's/=.*//' .env)
 MKFILE_DIR  := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 ##  Postgres Development Commands
-.PHONY: dev_mgrok dev_pg_migrate dev_docker_up dev_docker_down dev_pg_remove dev_neo_remove dev_pg_reset dev_pg
+.PHONY: go_replace dev_mgrok dev_auth_migrate dev_docker_up dev_docker_down dev_pg_remove dev_neo_remove dev_pg_reset dev_pg
+
+go_replace: 
+	@if [ "$$from" = "" ]; then             \
+		echo "Missing 'from' input argument"; \
+		exit 1;                               \
+	fi;
+	@if [ "$$to" = "" ]; then               \
+		echo "Missing 'to' input argument";   \
+		exit 1;                               \
+	fi;
+	@find . -type f -name "*.go" -exec sed -i '' 's/$$from/$$to/g' {}
 
 dev_mgrok:       ## dev_mgrok       :: Starts up our mgrok server -- allowing us to test our development application online
 	@ngrok http --url=on-shad-capable.ngrok-free.app 8080
@@ -15,8 +26,8 @@ dev_docker_up:   ## dev_docker_up   :: Runs docker-compose up -d -- Creating a P
 dev_docker_down: ## dev_docker_down :: Runs docker-compose down -- Stopping our Postgres Docker Image.
 	@docker-compose down
 
-dev_pg_migrate:  ## dev_pg_migrate  :: calles go run cmd/migrate/main.go up for initializing our base auth migrations. This will be removed in the future.
-	@go run cmd/migrate/main.go up
+dev_auth_migrate:  ## dev_pg_migrate  :: calles go run cmd/migrate/main.go up for initializing our base auth migrations. This will be removed in the future.
+	@go run cmd/migrate/main.go -pg -auth up
 
 dev_pg_remove:   ## dev_pg_remove   :: Removes out Postgres Docker Image
 	@docker volume rm fidicus_postgres_data

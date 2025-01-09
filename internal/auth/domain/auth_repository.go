@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 )
 
 // AuthRepository defines our Authentication's storage logic.
@@ -33,7 +34,7 @@ type AuthRepository interface {
   // CreateRefreshToken - For creating a new Access Token, requires an accountID to verify account validity.
   // RefreshToken is wrapped with this AuthRepository function in order to verify that the caller is 
   // a valid account holder.
-  CreateRefreshToken(context.Context, EntityID, AccountID, Role)( Token, Token, error )
+  CreateRefreshToken(context.Context, EntityID, AccountID, role.Role)( Token, Token, error )
 
   // Shutdown - Allows for graceful shutdown operations.
   Shutdown() error

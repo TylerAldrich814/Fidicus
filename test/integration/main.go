@@ -23,6 +23,7 @@ import (
 	AuthHTTP "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/http"
 	AuthRepo "github.com/TylerAldrich814/Fidicus/internal/auth/infrastructure/repository"
 	"github.com/TylerAldrich814/Fidicus/internal/shared/config"
+	role "github.com/TylerAldrich814/Fidicus/internal/shared/domain"
 )
 
 type SignupReq struct {
@@ -37,8 +38,6 @@ var (
 )
 
 func main(){
-  config.LoadEnv()
-
   ctx, cancel := signal.NotifyContext(
     context.Background(),
     os.Interrupt,
@@ -46,7 +45,10 @@ func main(){
   defer cancel()
   config.InitLogger()
 
-  dbConfig := config.GetDBConfig()
+  dbConfig, err := config.GetPgsqlConfig("-auth")
+  if err != nil {
+    log.Fatal("Failed to get Database Config: %s", err.Error())
+  }
   authURI := dbConfig.GetPostgresURI()
 
   // Main HTTP Router
@@ -114,7 +116,7 @@ func main(){
     EntityName : signupReq.Entity.Name,
     Email      : signupReq.Account.Email,
     Passw      : signupReq.Account.Passw,
-    Role       :  domain.AccessRoleEntity,
+    Role       : role.AccessRoleEntity,
   }
   
   access, refresh, err := AccountSignin(
@@ -165,7 +167,7 @@ func main(){
     EntityID        : entityID,
     Email           : fmt.Sprintf("SubAccount@Entity_%d.com", pad),
     Passw           : "SomeExtemely6Secretive6Password6",
-    Role            :  domain.AccessRoleAccount,
+    Role            : role.AccessRoleAccount,
     FirstName       : "Tyler",
     LastName        : "Aldrich",
     CellphoneNumber : "814-431-0674",
@@ -193,7 +195,7 @@ func main(){
       EntityName : entityName,
       Email      : subAccountReq.Email,
       Passw      : subAccountReq.Passw,
-      Role       : domain.AccessRoleAccount,
+      Role       : role.AccessRoleAccount,
     }
 
     // ->> SubAccount Signin:
@@ -229,7 +231,7 @@ func main(){
       EntityID        : entityID,
       Email           : fmt.Sprintf("ShouldNotPass@Entity_%d.com", pad),
       Passw           : "Should6Not9Pass",
-      Role            :  domain.AccessRoleAdmin,
+      Role            : role.AccessRoleAdmin,
       FirstName       : "Tyler",
       LastName        : "A",
       CellphoneNumber : "814-431-0674",
